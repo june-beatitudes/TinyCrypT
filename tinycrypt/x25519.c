@@ -138,31 +138,36 @@ shr512_by_255 (const uint8_t *in, uint8_t *out)
 static bool
 iszero264 (const uint8_t *a)
 {
+  uint8_t dummy = 0x0;
   for (unsigned int i = 0; i < 33; ++i)
     {
-      if (a[i] != 0x0)
-        {
-          return false;
-        }
+      dummy |= a[i];
     }
-  return true;
+  return !dummy;
+}
+
+static void
+sub264 (uint8_t *h, const uint8_t *c)
+{
+  uint16_t acc = 0;
+  for (unsigned int i = 0; i < 33; ++i)
+    {
+      acc += (255 - h[i]) + c[i];
+      h[i] = 255 - (acc & 0xFF);
+      acc >>= 8;
+    }
 }
 
 static bool
 greater264 (const uint8_t *a, const uint8_t *b)
 {
+  uint8_t buf[33];
   for (unsigned int i = 0; i < 33; ++i)
     {
-      if (a[32 - i] < b[32 - i])
-        {
-          return false;
-        }
-      else if (a[32 - i] > b[32 - i])
-        {
-          return true;
-        }
+      buf[i] = a[i];
     }
-  return false;
+  sub264 (buf, b);
+  return buf[32] & (1 << 7);
 }
 
 static void
@@ -190,18 +195,6 @@ sub512 (uint8_t *h, const uint8_t *c)
 }
 
 static void
-sub264 (uint8_t *h, const uint8_t *c)
-{
-  uint16_t acc = 0;
-  for (unsigned int i = 0; i < 33; ++i)
-    {
-      acc += (255 - h[i]) + c[i];
-      h[i] = 255 - (acc & 0xFF);
-      acc >>= 8;
-    }
-}
-
-static void
 modp_512 (const uint8_t *in, uint8_t *out)
 {
   const uint8_t P[33] = {
@@ -216,23 +209,22 @@ modp_512 (const uint8_t *in, uint8_t *out)
     {
       accumulator[i] = in[i];
     }
-  while (true)
+  for (unsigned int i = 0; i < 2; ++i)
     {
       shr512_by_255 (accumulator, approx_quotient);
-      if (iszero264 (approx_quotient))
-        {
-          while (!greater264 (P, accumulator))
-            {
-              sub264 (accumulator, P);
-            }
-          for (unsigned int i = 0; i < 32; ++i)
-            {
-              out[i] = accumulator[i];
-            }
-          return;
-        }
       mult264 (P, approx_quotient, approx_dividend);
       sub512 (accumulator, approx_dividend);
+    }
+  uint8_t dummy_buf[33];
+  uint8_t dummy_val = (greater264 (P, accumulator)) ? 0x1 : 0x0;
+  for (unsigned int i = 0; i < 33; ++i)
+    {
+      dummy_buf[i] = P[i] * dummy_val;
+    }
+  sub264 (accumulator, dummy_buf);
+  for (unsigned int i = 0; i < 32; ++i)
+    {
+      out[i] = accumulator[i];
     }
 }
 
@@ -324,7 +316,7 @@ swap256 (unsigned int do_swap, uint8_t *a, uint8_t *b)
 static void
 x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
 {
-  uint8_t k_int[32];
+  uint8_t k_int[32], u_int_big[64], u_int_small[32];
   for (unsigned int i = 0; i < 32; ++i)
     {
       if (i == 0)
@@ -339,13 +331,18 @@ x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
         {
           k_int[i] = key[i];
         }
+      u_int_big[i] = u[i];
     }
+  for (unsigned int i = 32; i < 64; ++i)
+    {
+      u_int_big[i] = 0x0;
+    }
+  modp_512 (u_int_big, u_int_small);
   uint8_t A24[32] = {
     0x41, 0xdb, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   };
-  print256(A24);
   uint8_t buf[32 * 4];
   uint8_t *x2 = buf;
   uint8_t *z2 = buf + 32;
@@ -356,16 +353,18 @@ x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
     {
       x2[i] = 0x0;
       z2[i] = 0x0;
-      x3[i] = u[i];
+      x3[i] = u_int_small[i];
       z3[i] = 0x0;
     }
   x2[0] = 0x1;
   z3[0] = 0x1;
   for (int i = 254; i >= 0; --i)
     {
-      swap = (k_int[i / 8] >> (i % 8)) & 1;
+      unsigned int kt = (k_int[i / 8] >> (i % 8)) & 1;
+      swap ^= kt;
       swap256 (swap, x2, x3);
       swap256 (swap, z2, z3);
+      swap = kt;
 
       uint8_t e[32], f[32];
 
@@ -385,12 +384,12 @@ x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
       add256_modp (x2, z3, x2);
       mult256_modp (z2, x2, z2);
       mult256_modp (z3, f, x2);
-      mult256_modp (x3, u, z3);
+      mult256_modp (x3, u_int_small, z3);
       mult256_modp (e, e, x3);
-
-      swap256 (swap, x2, x3);
-      swap256 (swap, z2, z3);
     }
+  swap256 (swap, x2, x3);
+  swap256 (swap, z2, z3);
+
   uint8_t intermediate[32];
   inv256_modp (z2, intermediate);
   mult256_modp (x2, intermediate, out);
