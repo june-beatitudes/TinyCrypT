@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "tinycrypt/sha2.h"
+
 static uint32_t
 rotr_32 (uint32_t x, int c)
 {
