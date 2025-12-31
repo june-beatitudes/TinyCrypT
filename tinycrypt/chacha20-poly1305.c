@@ -1,6 +1,7 @@
-#include "tinycript/chacha20-poly1305.h"
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "tinycrypt/chacha20-poly1305.h"
 
 static uint32_t
 rotl_32 (uint32_t x, int c)

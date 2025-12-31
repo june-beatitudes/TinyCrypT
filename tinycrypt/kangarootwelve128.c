@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <stdio.h>
+#include "tinycrypt/kangarootwelve128.h"
 
 static uint64_t
 rotl64 (uint64_t x, int c)
@@ -128,38 +128,23 @@ turboshake128_init (uint8_t *state)
 
 static void
 turboshake128_absorb (uint8_t *state, const uint8_t *data,
-                      const uint64_t data_len, const uint8_t separation_byte,
-                      const bool is_last)
+                      const uint64_t data_len, const uint8_t separation_byte)
 {
-  for (uint64_t i = 0; i <= data_len; i += 168)
+  for (unsigned int i = 0; i < data_len; ++i)
     {
-      uint8_t buf[200];
-      for (unsigned int j = 0; j < ((data_len - i < 168) ? data_len - i : 168);
-           ++j)
-        {
-          buf[j] = data[i + j];
-        }
-      for (unsigned int j = ((data_len - i < 168) ? data_len - i : 168);
-           j < 200; ++j)
-        {
-          buf[j] = 0x0;
-        }
-      if (data_len - i < 168 && is_last)
-        {
-          buf[data_len - i] = separation_byte;
-          buf[167] = 0x80;
-        }
-      for (unsigned int j = 0; j < 200; ++j)
-        {
-          state[j] ^= buf[j];
-        }
-      kp (state);
+      state[i] ^= data[i];
     }
+  if (data_len < 168)
+    {
+      state[data_len] ^= separation_byte;
+      state[167] ^= 0x80;
+    }
+  kp (state);
 }
 
 static void
-turboshake128_squeeze (uint8_t *state, uint8_t *output,
-                       const uint64_t output_len)
+turboshake128_squeeze_destructive (uint8_t *state, uint8_t *output,
+                                   const uint64_t output_len)
 {
   for (uint64_t i = 0; i < output_len; i += 168)
     {
@@ -180,14 +165,14 @@ length_encode (const uint64_t n, uint8_t *out, uint64_t *out_len)
     {
       (*out_len)++;
     }
-  for (uint64_t i = n; i > 0; i /= 256)
+  for (uint64_t i = 0; i < (*out_len) - 1; ++i)
     {
-      out[(*out_len) - 1 - (i / 256)] = i & 0xFF;
+      out[(*out_len) - 2 - i] = (n >> (8 * i)) & 0xFF;
     }
   out[(*out_len) - 1] = ((*out_len) - 1) & 0xFF;
 }
 
-static void
+void
 tct_kangarootwelve128 (const uint8_t *input, const uint64_t input_len,
                        const uint8_t *custom_str, const uint64_t cs_len,
                        uint8_t *output, const uint64_t output_len)
@@ -195,16 +180,16 @@ tct_kangarootwelve128 (const uint8_t *input, const uint64_t input_len,
   uint8_t buf[168];
   uint8_t state[200];
   turboshake128_init (state);
-  if (input_len + cs_len + sizeof (uint64_t) <= 8192)
+  uint8_t encoded[8];
+  uint64_t encoded_len;
+  length_encode (cs_len, encoded, &encoded_len);
+  const uint64_t s_size = input_len + cs_len + encoded_len;
+  if (s_size <= 8192)
     {
-      uint8_t encoded[8];
-      uint64_t encoded_len;
-      length_encode (cs_len, encoded, &encoded_len);
-      const uint64_t s_size = input_len + cs_len + encoded_len;
       for (uint64_t i = 0; i < s_size; i += 168)
         {
-          for (uint64_t j = 0; j < ((s_size - i < 168) ? s_size - i : 168);
-               ++j)
+          uint64_t buf_len = (s_size - i < 168) ? s_size - i : 168;
+          for (uint64_t j = 0; j < buf_len; ++j)
             {
               if (i + j < input_len)
                 {
@@ -219,27 +204,149 @@ tct_kangarootwelve128 (const uint8_t *input, const uint64_t input_len,
                   buf[j] = encoded[i + j - input_len - cs_len];
                 }
             }
-          turboshake128_absorb (state, buf,
-                                ((s_size - i < 168) ? s_size - i : 168), 0x07,
-                                s_size - i < 168);
+          turboshake128_absorb (state, buf, buf_len, 0x07);
         }
-      turboshake128_squeeze (state, output, output_len);
+      turboshake128_squeeze_destructive (state, output, output_len);
       return;
     }
-}
-
-int
-main (int argc, char **argv)
-{
-  uint8_t output[64];
-  tct_kangarootwelve128 (NULL, 0, NULL, 0, output, 64);
-  for (unsigned int i = 0; i < 64; ++i)
+  uint64_t buf_len;
+  for (unsigned int i = 0; i < 8200; i += 168)
     {
-      printf ("%02x ", output[i]);
-      if (i % 16 == 15)
+      buf_len = (8200 - i < 168) ? 8200 - i : 168;
+      for (unsigned int j = 0; j < buf_len; ++j)
         {
-          printf ("\n");
+          if (i + j < 8192)
+            {
+              if (i + j < input_len)
+                {
+                  buf[j] = input[i + j];
+                }
+              else if (i + j < input_len + cs_len)
+                {
+                  buf[j] = custom_str[i + j - input_len];
+                }
+              else
+                {
+                  buf[j] = encoded[i + j - input_len - cs_len];
+                }
+            }
+          else if (i + j < 8193)
+            {
+              buf[j] = 0x03;
+            }
+          else
+            {
+              buf[j] = 0x0;
+            }
+        }
+      if (buf_len == 168)
+        {
+          turboshake128_absorb (state, buf, 168, 0x06);
         }
     }
-  return 0;
+  uint64_t offset = 8192;
+  uint64_t num_block = 0;
+  while (offset < s_size)
+    {
+      uint64_t block_size = (8192 < s_size - offset) ? 8192 : s_size - offset;
+      uint8_t cv[32];
+      uint8_t cv_buf[168];
+      uint8_t cv_state[200];
+      turboshake128_init (cv_state);
+      for (uint64_t i = offset; i < offset + block_size; i += 168)
+        {
+          uint64_t cv_block_size = (168 < offset + block_size - i)
+                                       ? 168
+                                       : offset + block_size - i;
+          for (uint64_t j = 0; j < cv_block_size; ++j)
+            {
+              if (i + j < input_len)
+                {
+                  cv_buf[j] = input[i + j];
+                }
+              else if (i + j < input_len + cs_len)
+                {
+                  cv_buf[j] = custom_str[i + j - input_len];
+                }
+              else
+                {
+                  cv_buf[j] = encoded[i + j - input_len - cs_len];
+                }
+            }
+          turboshake128_absorb (cv_state, cv_buf, cv_block_size, 0x0B);
+        }
+      turboshake128_squeeze_destructive (cv_state, cv, 32);
+      if (buf_len + 32 >= 168)
+        {
+          for (unsigned int i = buf_len; i < 168; ++i)
+            {
+              buf[i] = cv[i - buf_len];
+            }
+          turboshake128_absorb (state, buf, 168, 0x06);
+          for (unsigned int i = (buf_len + 32) - 168; i < 32; ++i)
+            {
+              buf[i] = cv[i];
+            }
+        }
+      else
+        {
+          for (unsigned int i = buf_len; i < buf_len + 32; ++i)
+            {
+              buf[i] = cv[i - buf_len];
+            }
+        }
+      buf_len += 32;
+      buf_len %= 168;
+      num_block++;
+      offset += block_size;
+    }
+  uint8_t nb_encoded[8];
+  uint64_t nb_encoded_size;
+  length_encode (num_block, nb_encoded, &nb_encoded_size);
+  if (buf_len + nb_encoded_size + 2 >= 168)
+    {
+      for (unsigned int i = buf_len; i < 168; ++i)
+        {
+          if (i - buf_len < nb_encoded_size)
+            {
+              buf[i] = nb_encoded[i - buf_len];
+            }
+          else
+            {
+              buf[i] = 0xFF;
+            }
+        }
+      turboshake128_absorb (state, buf, 168, 0x06);
+
+      for (unsigned int i = (buf_len + nb_encoded_size + 2) - 168;
+           i < nb_encoded_size + 2; ++i)
+        {
+          if (i < nb_encoded_size)
+            {
+              buf[i] = nb_encoded[i];
+            }
+          else
+            {
+              buf[i] = 0xFF;
+            }
+        }
+      buf_len = (buf_len + nb_encoded_size + 2) - 168;
+    }
+  else
+    {
+      for (unsigned int i = buf_len; i < buf_len + nb_encoded_size + 2; ++i)
+        {
+          if (i - buf_len < nb_encoded_size)
+            {
+              buf[i] = nb_encoded[i - buf_len];
+            }
+          else
+            {
+              buf[i] = 0xFF;
+            }
+        }
+      buf_len += nb_encoded_size + 2;
+    }
+  turboshake128_absorb (state, buf, buf_len, 0x06);
+  turboshake128_squeeze_destructive (state, output, output_len);
 }

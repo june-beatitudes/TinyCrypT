@@ -313,8 +313,8 @@ swap256 (unsigned int do_swap, uint8_t *a, uint8_t *b)
     }
 }
 
-static void
-x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
+void
+tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
 {
   uint8_t k_int[32], u_int_big[64], u_int_small[32];
   for (unsigned int i = 0; i < 32; ++i)
@@ -411,7 +411,7 @@ main (int argc, const char **argv)
   };
   print256 (u);
   uint8_t out[32];
-  x25519 (k, u, out);
+  tct_x25519 (k, u, out);
   print256 (out);
   return 0;
 }
