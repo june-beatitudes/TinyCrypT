@@ -1,28 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <stdio.h>
-
-static void
-print256 (const uint8_t *x)
-{
-  for (unsigned int i = 0; i < 32; ++i)
-    {
-      printf ("%02x", x[i]);
-    }
-  printf ("\n");
-}
-
-static void
-print512 (const uint8_t *x)
-{
-  for (unsigned int i = 0; i < 64; ++i)
-    {
-      printf ("%02x", x[63 - i]);
-    }
-  printf ("\n");
-}
-
 static uint32_t
 from_le32 (const uint8_t *x)
 {
@@ -185,22 +163,33 @@ add512 (uint8_t *h, const uint8_t *c)
 static void
 sub512 (uint8_t *h, const uint8_t *c)
 {
-  uint16_t acc = 0;
+  int16_t acc = 0;
   for (unsigned int i = 0; i < 64; ++i)
     {
-      acc += (255 - h[i]) + c[i];
-      h[i] = 255 - (acc & 0xFF);
-      acc >>= 8;
+      acc += (int16_t)h[i] - (int16_t)c[i];
+      if (acc < 0)
+        {
+          h[i] = acc + 256;
+          acc = -1;
+        }
+      else
+        {
+          h[i] = acc % 256;
+          acc /= 256;
+        }
     }
 }
 
 static void
 modp_512 (const uint8_t *in, uint8_t *out)
 {
-  const uint8_t P[33] = {
+  const uint8_t P[64] = {
     0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   };
   uint8_t approx_quotient[33];
   uint8_t approx_dividend[64];
@@ -209,19 +198,21 @@ modp_512 (const uint8_t *in, uint8_t *out)
     {
       accumulator[i] = in[i];
     }
+  // Handle negatives properly
+  add512 (accumulator, P);
   for (unsigned int i = 0; i < 2; ++i)
     {
       shr512_by_255 (accumulator, approx_quotient);
       mult264 (P, approx_quotient, approx_dividend);
       sub512 (accumulator, approx_dividend);
     }
-  uint8_t dummy_buf[33];
+  uint8_t dummy_buf[64];
   uint8_t dummy_val = (greater264 (P, accumulator)) ? 0x1 : 0x0;
-  for (unsigned int i = 0; i < 33; ++i)
+  for (unsigned int i = 0; i < 64; ++i)
     {
       dummy_buf[i] = P[i] * dummy_val;
     }
-  sub264 (accumulator, dummy_buf);
+  sub512 (accumulator, dummy_buf);
   for (unsigned int i = 0; i < 32; ++i)
     {
       out[i] = accumulator[i];
@@ -316,7 +307,7 @@ swap256 (unsigned int do_swap, uint8_t *a, uint8_t *b)
 void
 tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
 {
-  uint8_t k_int[32], u_int_big[64], u_int_small[32];
+  uint8_t k_int[32], u_int_small[32], u_int_big[64];
   for (unsigned int i = 0; i < 32; ++i)
     {
       if (i == 0)
@@ -337,6 +328,7 @@ tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
     {
       u_int_big[i] = 0x0;
     }
+  u_int_big[31] &= 0x7F;
   modp_512 (u_int_big, u_int_small);
   uint8_t A24[32] = {
     0x41, 0xdb, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -360,14 +352,11 @@ tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
   z3[0] = 0x1;
   for (int i = 254; i >= 0; --i)
     {
-      unsigned int kt = (k_int[i / 8] >> (i % 8)) & 1;
-      swap ^= kt;
+      swap = (k_int[i / 8] >> (i % 8)) & 1;
       swap256 (swap, x2, x3);
       swap256 (swap, z2, z3);
-      swap = kt;
 
       uint8_t e[32], f[32];
-
       add256_modp (x2, z2, e);
       sub256_modp (x2, z2, x2);
       add256_modp (x3, z3, z2);
@@ -386,32 +375,12 @@ tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
       mult256_modp (z3, f, x2);
       mult256_modp (x3, u_int_small, z3);
       mult256_modp (e, e, x3);
+
+      swap256 (swap, x2, x3);
+      swap256 (swap, z2, z3);
     }
-  swap256 (swap, x2, x3);
-  swap256 (swap, z2, z3);
 
   uint8_t intermediate[32];
-  inv256_modp (z2, intermediate);
-  mult256_modp (x2, intermediate, out);
-}
-
-int
-main (int argc, const char **argv)
-{
-  uint8_t k[32] = {
-    0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-  };
-  print256 (k);
-  uint8_t u[32] = {
-    0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-  };
-  print256 (u);
-  uint8_t out[32];
-  tct_x25519 (k, u, out);
-  print256 (out);
-  return 0;
+  inv256_modp (z2, z2);
+  mult256_modp (x2, z2, out);
 }
