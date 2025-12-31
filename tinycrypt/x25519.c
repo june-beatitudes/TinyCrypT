@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "tinycrypt/x25519.h"
+
 static uint32_t
 from_le32 (const uint8_t *x)
 {
