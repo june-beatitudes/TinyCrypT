@@ -20,6 +20,8 @@
           cmake
           gcc
           clang-tools
+          gnumake
+          valgrind
         ];
       };
     in
