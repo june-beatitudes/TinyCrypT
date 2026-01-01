@@ -2,7 +2,7 @@
   description = "TinyCrypT Build Environment";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-25.11";
   };
 
   outputs =
@@ -18,7 +18,7 @@
         name = "tct-tooling-env";
         packages = with pkgs; [
           cmake
-          clang
+          gcc
           clang-tools
           gnumake
           valgrind
