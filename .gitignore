@@ -55,4 +55,4 @@ dkms.conf
 test-main
 .cache/
 compile_commands.json
-lib/
+build/

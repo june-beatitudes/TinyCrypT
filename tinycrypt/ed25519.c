@@ -14,16 +14,6 @@ from_le32 (const uint8_t *x)
 }
 
 static void
-to_le32 (uint32_t u, uint8_t *x)
-{
-  for (unsigned int i = 0; i < 4; ++i)
-    {
-      x[i] = u & 0xFF;
-      u >>= 8;
-    }
-}
-
-static void
 to_le64 (uint64_t u, uint8_t *x)
 {
   for (unsigned int i = 0; i < 8; ++i)
@@ -114,17 +104,6 @@ shr512_by_255 (const uint8_t *in, uint8_t *out)
       out[i] = (in[i + 31] >> 7) | (in[i + 32] << 1);
     }
   out[32] = in[63] >> 7;
-}
-
-static bool
-iszero264 (const uint8_t *a)
-{
-  uint8_t dummy = 0x0;
-  for (unsigned int i = 0; i < 33; ++i)
-    {
-      dummy |= a[i];
-    }
-  return !dummy;
 }
 
 static bool
@@ -335,9 +314,7 @@ swap256 (unsigned int do_swap, uint8_t *a, uint8_t *b)
 static void
 pow256_2523_modp (const uint8_t *in, uint8_t *out)
 {
-  uint8_t buf[64];
-  uint8_t *i0 = buf;
-  uint8_t *i1 = buf + 32;
+  uint8_t i0[32];
   for (unsigned int i = 0; i < 32; ++i)
     {
       i0[i] = in[i];
@@ -559,16 +536,6 @@ scalarmult (const uint8_t *k, const uint8_t *x_in, const uint8_t *y_in,
 }
 
 static void
-shr512_by_254 (const uint8_t *in, uint8_t *out)
-{
-  for (unsigned int i = 0; i < 32; ++i)
-    {
-      out[i] = (in[i + 31] >> 6) | (in[i + 32] << 2);
-    }
-  out[32] = in[63] >> 6;
-}
-
-static void
 shl512 (const uint8_t *in, const uint64_t shift, uint8_t *out)
 {
   for (uint64_t i = 0; i < 64; ++i)
@@ -605,7 +572,7 @@ modl512 (const uint8_t *x, uint8_t *out)
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
   };
-  uint8_t i0[64], i1[64], i2[33];
+  uint8_t i0[64];
   for (unsigned int i = 0; i < 64; ++i)
     {
       i0[i] = x[i];

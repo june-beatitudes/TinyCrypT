@@ -13,16 +13,6 @@ from_le32 (const uint8_t *x)
 }
 
 static void
-to_le32 (uint32_t u, uint8_t *x)
-{
-  for (unsigned int i = 0; i < 4; ++i)
-    {
-      x[i] = u & 0xFF;
-      u >>= 8;
-    }
-}
-
-static void
 to_le64 (uint64_t u, uint8_t *x)
 {
   for (unsigned int i = 0; i < 8; ++i)
@@ -113,17 +103,6 @@ shr512_by_255 (const uint8_t *in, uint8_t *out)
       out[i] = (in[i + 31] >> 7) | (in[i + 32] << 1);
     }
   out[32] = in[63] >> 7;
-}
-
-static bool
-iszero264 (const uint8_t *a)
-{
-  uint8_t dummy = 0x0;
-  for (unsigned int i = 0; i < 33; ++i)
-    {
-      dummy |= a[i];
-    }
-  return !dummy;
 }
 
 static void
@@ -382,7 +361,6 @@ tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
       swap256 (swap, z2, z3);
     }
 
-  uint8_t intermediate[32];
   inv256_modp (z2, z2);
   mult256_modp (x2, z2, out);
 }

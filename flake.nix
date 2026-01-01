@@ -17,7 +17,8 @@
       shl = pkgs.mkShell {
         name = "tct-tooling-env";
         packages = with pkgs; [
-          cmake
+          ninja
+          meson
           gcc
           clang-tools
           gnumake
