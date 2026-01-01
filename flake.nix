@@ -22,6 +22,7 @@
           clang-tools
           gnumake
           valgrind
+          bear
         ];
       };
     in

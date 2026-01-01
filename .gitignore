@@ -53,3 +53,5 @@ Mkfile.old
 dkms.conf
 
 build/test-main
+.cache/
+compile_commands.json
