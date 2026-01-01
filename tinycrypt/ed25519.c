@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
 
 #include "tinycrypt/sha2.h"
 #include "tinycrypt/ed25519.h"
@@ -150,8 +149,6 @@ sub264 (uint8_t *h, const uint8_t *c)
       acc >>= 8;
     }
 }
-
-#include <stdio.h>
 
 static bool
 greater264 (const uint8_t *a, const uint8_t *b)

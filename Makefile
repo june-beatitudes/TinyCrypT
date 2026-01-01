@@ -1,13 +1,25 @@
-CC ?= gcc
+CC ?= clang
+AR ?= ar
 INCLUDE_PATH := .
-SOURCE_FILES := tinycrypt/*.c
+SOURCE_FILES := $(wildcard tinycrypt/*.c)
+SOURCE_OBJECTS := $(SOURCE_FILES:tinycrypt/%.c=lib/%.o)
 TEST_SOURCE_FILES := tinycrypt/tests/*.c
+COMPILER_OPTS := -O3 -ffreestanding -std=c99
 
-build/test-main: $(SOURCE_FILES) $(TEST_SOURCE_FILES)
-	@ $(CC) -o build/test-main -I$(INCLUDE_PATH) $(SOURCE_FILES) $(TEST_SOURCE_FILES)
+test-main: $(SOURCE_OBJECTS) $(TEST_SOURCE_FILES)
+	@ $(CC) -o test-main -O3 -I$(INCLUDE_PATH) $(SOURCE_FILES) $(TEST_SOURCE_FILES)
 
-tests: build/test-main
-	@ ./build/test-main
+tests: test-main
+	@ ./test-main
 
-memcheck: build/test-main
-	@ valgrind ./build/test-main
+memcheck: test-main
+	@ valgrind ./test-main
+
+lib/%.o: tinycrypt/%.c
+	@ $(CC) -c $(COMPILER_OPTS) -I$(INCLUDE_PATH) $< -o $@
+
+lib: $(SOURCE_OBJECTS)
+	@ $(AR) rcs lib/libtinycrypt.a lib/*.o
+
+clean:
+	rm lib/*.o test-main

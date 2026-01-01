@@ -18,11 +18,12 @@
         name = "tct-tooling-env";
         packages = with pkgs; [
           cmake
-          gcc
+          clang
           clang-tools
           gnumake
           valgrind
           bear
+          tokei
         ];
       };
     in
