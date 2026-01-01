@@ -147,7 +147,7 @@ greater264 (const uint8_t *a, const uint8_t *b)
       buf[i] = a[i];
     }
   sub264 (buf, b);
-  return buf[32] & (1 << 7);
+  return !(buf[32] & (1 << 7));
 }
 
 static void
