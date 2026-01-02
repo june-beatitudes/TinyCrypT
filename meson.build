@@ -23,18 +23,23 @@ project_dep = declare_dependency(
 )
 set_variable(meson.project_name() + '_dep', project_dep)
 
-test_sources = [
-    'tests/src/sha256.cpp',
+sha2_test_sources = [
+    'tests/src/sha2/SHA512LongMsg.cpp',
+    'tests/src/sha2/SHA512ShortMsg.cpp',
+    'tests/src/sha2/SHA512Monte.cpp',
+    'tests/src/sha2/SHA256LongMsg.cpp',
+    'tests/src/sha2/SHA256ShortMsg.cpp',
+    'tests/src/sha2/SHA256Monte.cpp',
 ]
 
 if not meson.is_subproject()
     add_languages('cpp')
     subdir('tests')
     test(
-        'all_tests',
+        'sha2_tests',
         executable(
-            'run_tests',
-            test_sources,
+            'sha2_tests',
+            sha2_test_sources,
             include_directories: incdir,
             link_with: target,
             dependencies: test_dep,
