@@ -14,3 +14,4 @@ The CC20-P1305 implementation was not designed with side-channel attacks in mind
 
 ## Testing Validations
 - The SHA-2 implementations pass all 586 NIST-provided test cases without memory violations (according to `valgrind`).
+- The Ed25519 implementation passes all 1024 provided test cases (though signatures can take up to 8ms)

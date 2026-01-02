@@ -20,4 +20,19 @@ bool tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
                          const uint64_t msg_len, uint8_t *working_buf,
                          const uint8_t *signature);
 
+void tct_ed25519_pctable_gen (uint8_t *out);
+
+void xB (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t);
+
+void inv256_modp (const uint8_t *x, uint8_t *out);
+
+void mult256_modp (const uint8_t *a, const uint8_t *b, uint8_t *out);
+
+bool points_eq (const uint8_t *x1, const uint8_t *y1, const uint8_t *z1,
+                const uint8_t *t1, const uint8_t *x2, const uint8_t *y2,
+                const uint8_t *z2, const uint8_t *t2);
+
+void xB_lowmem (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z,
+                uint8_t *t);
+
 #endif

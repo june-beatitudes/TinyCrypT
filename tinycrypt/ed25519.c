@@ -1,8 +1,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "tinycrypt/sha2.h"
 #include "tinycrypt/ed25519.h"
+#include "tinycrypt/sha2.h"
 
 static uint32_t
 from_le32 (const uint8_t *x)
@@ -142,7 +142,7 @@ greater264 (const uint8_t *a, const uint8_t *b)
   return !(buf[32] & (1 << 7));
 }
 
-static void
+void
 add512 (uint8_t *h, const uint8_t *c)
 {
   uint16_t acc = 0;
@@ -157,24 +157,28 @@ add512 (uint8_t *h, const uint8_t *c)
 static void
 sub512 (uint8_t *h, const uint8_t *c)
 {
-  int16_t acc = 0;
+  uint16_t acc = 0;
   for (unsigned int i = 0; i < 64; ++i)
     {
-      acc += (int16_t)h[i] - (int16_t)c[i];
-      if (acc < 0)
-        {
-          h[i] = acc + 256;
-          acc = -1;
-        }
-      else
-        {
-          h[i] = acc % 256;
-          acc /= 256;
-        }
+      acc += (255 - h[i]) + c[i];
+      h[i] = 255 - (acc & 0xFF);
+      acc >>= 8;
     }
 }
 
-static bool
+static void
+sub520 (uint8_t *h, const uint8_t *c)
+{
+  uint16_t acc = 0;
+  for (unsigned int i = 0; i < 65; ++i)
+    {
+      acc += (255 - h[i]) + c[i];
+      h[i] = 255 - (acc & 0xFF);
+      acc >>= 8;
+    }
+}
+
+bool
 greater512 (const uint8_t *a, const uint8_t *b)
 {
   uint8_t buf[64];
@@ -187,7 +191,23 @@ greater512 (const uint8_t *a, const uint8_t *b)
   return !(buf[63] & (1 << 7));
 }
 
-static void
+bool
+greater512_unsigned (const uint8_t *a, const uint8_t *b)
+{
+  uint8_t a_int[65], b_int[65];
+  for (unsigned int i = 0; i < 64; ++i)
+    {
+      a_int[i] = a[i];
+      b_int[i] = b[i];
+    }
+  a_int[64] = 0x0;
+  b_int[64] = 0x0;
+  sub520 (a_int, b_int);
+
+  return !(a_int[64] & (1 << 7));
+}
+
+void
 modp512 (const uint8_t *in, uint8_t *out)
 {
   const uint8_t P[64] = {
@@ -226,7 +246,7 @@ modp512 (const uint8_t *in, uint8_t *out)
     }
 }
 
-static void
+void
 mult256_modp (const uint8_t *a, const uint8_t *b, uint8_t *out)
 {
   uint8_t intermediate[64];
@@ -270,7 +290,7 @@ add256_modp (const uint8_t *a, const uint8_t *b, uint8_t *out)
   modp512 (intermediates[0], out);
 }
 
-static void
+void
 inv256_modp (const uint8_t *x, uint8_t *out)
 {
   uint8_t buf[64];
@@ -451,7 +471,7 @@ addpoints (const uint8_t *x1, const uint8_t *y1, const uint8_t *z1,
   mult256_modp (intermediates[3], intermediates[6], t3);
 }
 
-static bool
+bool
 points_eq (const uint8_t *x1, const uint8_t *y1, const uint8_t *z1,
            const uint8_t *t1, const uint8_t *x2, const uint8_t *y2,
            const uint8_t *z2, const uint8_t *t2)
@@ -510,7 +530,7 @@ scalarmult (const uint8_t *k, const uint8_t *x_in, const uint8_t *y_in,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
   };
-  for (int i = 255; i >= 0; --i)
+  for (int i = 253; i >= 0; --i)
     {
       unsigned int swap = (k[i / 8] >> (i % 8)) & 1;
       swap256 (swap, x1, x2);
@@ -580,9 +600,9 @@ modl512 (const uint8_t *x, uint8_t *out)
   for (int i = 259; i >= 0; --i)
     {
       shl512 (L, i, LMULT);
-      uint8_t *dummy = greater512 (i0, LMULT) ? LMULT : ZERO;
+      uint8_t *dummy = greater512_unsigned (i0, LMULT) ? LMULT : ZERO;
       sub512 (i0, dummy);
-      dummy = greater512 (i0, LMULT) ? LMULT : ZERO;
+      dummy = greater512_unsigned (i0, LMULT) ? LMULT : ZERO;
       sub512 (i0, dummy);
     }
 
@@ -593,13 +613,8 @@ modl512 (const uint8_t *x, uint8_t *out)
 }
 
 void
-tct_ed25519_keygen (const uint8_t *privkey, uint8_t *pubkey)
+xB_lowmem (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
 {
-  uint8_t digest[64];
-  tct_sha512 (privkey, 32, digest);
-  digest[0] &= 0b11111000;
-  digest[31] &= 0b01111111;
-  digest[31] |= 0b01000000;
   const uint8_t BX[32] = {
     0x1a, 0xd5, 0x25, 0x8f, 0x60, 0x2d, 0x56, 0xc9, 0xb2, 0xa7, 0x25,
     0x95, 0x60, 0xc7, 0x2c, 0x69, 0x5c, 0xdc, 0xd6, 0xfd, 0x31, 0xe2,
@@ -610,10 +625,121 @@ tct_ed25519_keygen (const uint8_t *privkey, uint8_t *pubkey)
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
     0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
   };
+  scalarmult (k, BX, BY, x, y, z, t);
+}
+
+void
+tct_ed25519_pctable_gen (uint8_t *out)
+{
+  uint8_t a[64], b[64];
+  for (unsigned int i = 0; i < 32; ++i)
+    {
+      a[i] = 0x0;
+      a[32 + i] = 0x0;
+    }
+  a[0] = 0x1;
+  uint8_t t[32], z[32];
+  for (unsigned int i = 0; i < 64; ++i)
+    {
+      modl512 (a, a);
+      modl512 (a, b);
+      if (iszero256 (a) && iszero256 (a + 32))
+        {
+          a[0] = b[0] = 0x1;
+        }
+      for (unsigned int j = 32; j < 64; ++j)
+        {
+          a[j] = b[j] = 0x0;
+        }
+      for (unsigned int j = 0; j < 15; ++j)
+        {
+          // We don't need `t` where we're going
+          uint8_t *x_out = &(out[15 * 32 * 2 * i + 32 * 2 * j]);
+          uint8_t *y_out = &(out[15 * 32 * 2 * i + 32 * 2 * j + 32]);
+          xB_lowmem (a, x_out, y_out, z, t);
+          inv256_modp (z, z);
+          mult256_modp (x_out, z, x_out);
+          mult256_modp (y_out, z, y_out);
+          add512 (a, b);
+        }
+    }
+}
+
+#ifndef TCT_LOWMEM
+
+#include "tinycrypt/ed25519_precompute.h"
+
+void
+xB (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
+{
+  const uint8_t ONE[32] = {
+    0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+  };
+  for (unsigned int i = 0; i < 32; ++i)
+    {
+      x[i] = y[i] = z[i] = t[i] = 0x0;
+    }
+  y[0] = 1;
+  z[0] = 1;
+  for (unsigned int i = 0; i < 32; ++i)
+    {
+      uint8_t ri0 = k[i] & 0xf;
+      uint8_t ri1 = (k[i] & 0xf0) >> 4;
+      uint8_t t0[32];
+      uint8_t t1[32];
+      if (ri0 != 0)
+        {
+          mult256_modp (
+              &PRECOMPUTE_TABLE[2 * i * 15 * 32 * 2 + (ri0 - 1) * 32 * 2],
+              &PRECOMPUTE_TABLE[2 * i * 15 * 32 * 2 + (ri0 - 1) * 32 * 2 + 32],
+              t0);
+          addpoints (
+              x, y, z, t,
+              &PRECOMPUTE_TABLE[2 * i * 15 * 32 * 2 + (ri0 - 1) * 32 * 2],
+              &PRECOMPUTE_TABLE[2 * i * 15 * 32 * 2 + (ri0 - 1) * 32 * 2 + 32],
+              ONE, t0, x, y, z, t);
+        }
+      if (ri1 != 0)
+        {
+          mult256_modp (&PRECOMPUTE_TABLE[(2 * i + 1) * 15 * 32 * 2
+                                          + (ri1 - 1) * 32 * 2],
+                        &PRECOMPUTE_TABLE[(2 * i + 1) * 15 * 32 * 2
+                                          + (ri1 - 1) * 32 * 2 + 32],
+                        t1);
+          addpoints (x, y, z, t,
+                     &PRECOMPUTE_TABLE[(2 * i + 1) * 15 * 32 * 2
+                                       + (ri1 - 1) * 32 * 2],
+                     &PRECOMPUTE_TABLE[(2 * i + 1) * 15 * 32 * 2
+                                       + (ri1 - 1) * 32 * 2 + 32],
+                     ONE, t1, x, y, z, t);
+        }
+    }
+}
+
+#else
+
+void
+xB (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
+{
+  xB_lowmem (k, x, y, z, t);
+}
+
+#endif
+
+void
+tct_ed25519_keygen (const uint8_t *privkey, uint8_t *pubkey)
+{
+  uint8_t digest[64];
+  tct_sha512 (privkey, 32, digest);
+  digest[0] &= 0b11111000;
+  digest[31] &= 0b01111111;
+  digest[31] |= 0b01000000;
   uint8_t z[32];
   uint8_t t[32];
   uint8_t x[32];
-  scalarmult (digest, BX, BY, x, pubkey, z, t);
+  xB (digest, x, pubkey, z, t);
   inv256_modp (z, z);
   mult256_modp (x, z, x);
   mult256_modp (pubkey, z, pubkey);
@@ -626,16 +752,6 @@ tct_ed25519_sign (const uint8_t *msg, const uint64_t msg_len,
                   const uint8_t *privkey, const uint8_t *pubkey,
                   uint8_t *working_buf, uint8_t *signature)
 {
-  const uint8_t BX[32] = {
-    0x1a, 0xd5, 0x25, 0x8f, 0x60, 0x2d, 0x56, 0xc9, 0xb2, 0xa7, 0x25,
-    0x95, 0x60, 0xc7, 0x2c, 0x69, 0x5c, 0xdc, 0xd6, 0xfd, 0x31, 0xe2,
-    0xa4, 0xc0, 0xfe, 0x53, 0x6e, 0xcd, 0xd3, 0x36, 0x69, 0x21,
-  };
-  const uint8_t BY[32] = {
-    0x58, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
-    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
-    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
-  };
   uint8_t digest[64];
   uint8_t s[64];
   tct_sha512 (privkey, 32, digest);
@@ -658,7 +774,7 @@ tct_ed25519_sign (const uint8_t *msg, const uint64_t msg_len,
   uint8_t rBy[32];
   uint8_t rBz[32];
   uint8_t rBt[32];
-  scalarmult (r, BX, BY, rBx, rBy, rBz, rBt);
+  xB (r, rBx, rBy, rBz, rBt);
   inv256_modp (rBz, rBz);
   mult256_modp (rBz, rBx, rBx);
   mult256_modp (rBz, rBy, signature);
@@ -696,16 +812,6 @@ tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
                     const uint64_t msg_len, uint8_t *working_buf,
                     const uint8_t *signature)
 {
-  const uint8_t BX[32] = {
-    0x1a, 0xd5, 0x25, 0x8f, 0x60, 0x2d, 0x56, 0xc9, 0xb2, 0xa7, 0x25,
-    0x95, 0x60, 0xc7, 0x2c, 0x69, 0x5c, 0xdc, 0xd6, 0xfd, 0x31, 0xe2,
-    0xa4, 0xc0, 0xfe, 0x53, 0x6e, 0xcd, 0xd3, 0x36, 0x69, 0x21,
-  };
-  const uint8_t BY[32] = {
-    0x58, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
-    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
-    0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
-  };
   uint8_t Ax[32];
   uint8_t Ay[32];
   if (!decode256 (pubkey, Ax, Ay))
@@ -751,7 +857,14 @@ tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
   uint8_t hAy[32];
   uint8_t hAz[32];
   uint8_t hAt[32];
-  scalarmult (signature + 32, BX, BY, sBx, sBy, sBz, sBt);
+  uint8_t sigk[64];
+  for (unsigned int i = 0; i < 32; ++i)
+    {
+      sigk[i] = signature[32 + i];
+      sigk[32 + i] = 0x0;
+    }
+  modl512 (sigk, sigk);
+  xB (sigk, sBx, sBy, sBz, sBt);
   scalarmult (h, Ax, Ay, hAx, hAy, hAz, hAt);
   addpoints (Rx, Ry, Rz, Rt, hAx, hAy, hAz, hAt, hAx, hAy, hAz, hAt);
   return points_eq (sBx, sBy, sBz, sBt, hAx, hAy, hAz, hAt);
