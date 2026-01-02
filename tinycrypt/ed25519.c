@@ -142,7 +142,7 @@ greater264 (const uint8_t *a, const uint8_t *b)
   return !(buf[32] & (1 << 7));
 }
 
-void
+static void
 add512 (uint8_t *h, const uint8_t *c)
 {
   uint16_t acc = 0;
@@ -178,20 +178,7 @@ sub520 (uint8_t *h, const uint8_t *c)
     }
 }
 
-bool
-greater512 (const uint8_t *a, const uint8_t *b)
-{
-  uint8_t buf[64];
-  for (unsigned int i = 0; i < 64; ++i)
-    {
-      buf[i] = a[i];
-    }
-  sub512 (buf, b);
-
-  return !(buf[63] & (1 << 7));
-}
-
-bool
+static bool
 greater512_unsigned (const uint8_t *a, const uint8_t *b)
 {
   uint8_t a_int[65], b_int[65];
@@ -207,7 +194,7 @@ greater512_unsigned (const uint8_t *a, const uint8_t *b)
   return !(a_int[64] & (1 << 7));
 }
 
-void
+static void
 modp512 (const uint8_t *in, uint8_t *out)
 {
   const uint8_t P[64] = {
@@ -246,7 +233,7 @@ modp512 (const uint8_t *in, uint8_t *out)
     }
 }
 
-void
+static void
 mult256_modp (const uint8_t *a, const uint8_t *b, uint8_t *out)
 {
   uint8_t intermediate[64];
@@ -290,7 +277,7 @@ add256_modp (const uint8_t *a, const uint8_t *b, uint8_t *out)
   modp512 (intermediates[0], out);
 }
 
-void
+static void
 inv256_modp (const uint8_t *x, uint8_t *out)
 {
   uint8_t buf[64];
@@ -471,7 +458,7 @@ addpoints (const uint8_t *x1, const uint8_t *y1, const uint8_t *z1,
   mult256_modp (intermediates[3], intermediates[6], t3);
 }
 
-bool
+static bool
 points_eq (const uint8_t *x1, const uint8_t *y1, const uint8_t *z1,
            const uint8_t *t1, const uint8_t *x2, const uint8_t *y2,
            const uint8_t *z2, const uint8_t *t2)
@@ -612,7 +599,7 @@ modl512 (const uint8_t *x, uint8_t *out)
     }
 }
 
-void
+static void
 xB_lowmem (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
 {
   const uint8_t BX[32] = {
@@ -669,7 +656,7 @@ tct_ed25519_pctable_gen (uint8_t *out)
 
 #include "tinycrypt/ed25519_precompute.h"
 
-void
+static void
 xB (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
 {
   const uint8_t ONE[32] = {
@@ -720,7 +707,7 @@ xB (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
 
 #else
 
-void
+static void
 xB (const uint8_t *k, uint8_t *x, uint8_t *y, uint8_t *z, uint8_t *t)
 {
   xB_lowmem (k, x, y, z, t);
