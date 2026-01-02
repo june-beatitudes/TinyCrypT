@@ -1,6 +1,6 @@
 # TinyCrypT
 
-Personal-use implementations of various cryptographic algorithms (NOT FOR PRODUCTION USE)
+Personal-use implementations of various cryptographic algorithms (NOT INTENDED FOR PRODUCTION USE)
 
 ## Algorithms
 - ChaCha20-Poly1305 for combined encryption and MAC
@@ -11,3 +11,6 @@ Personal-use implementations of various cryptographic algorithms (NOT FOR PRODUC
 
 ## Known Vulnerabilities
 The CC20-P1305 implementation was not designed with side-channel attacks in mind. Rewriting it to perform actions in constant time is a goal currently being undertaken (after unit tests are in place).
+
+## Testing Validations
+- The SHA-2 implementations pass all 586 NIST-provided test cases without memory violations (according to `valgrind`).
