@@ -13,7 +13,6 @@ sources = [
 build_args = [
     '-Os',
     '-ffreestanding',
-    '-pg',
 ]
 
 target = static_library('tinycrypt', sources, c_args: build_args, include_directories: incdir)

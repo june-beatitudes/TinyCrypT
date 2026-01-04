@@ -23,6 +23,6 @@ bool tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
 /// Constructs a memory-speed-tradeoff lookup table for use in Ed25519
 /// verifications, similar (but larger by ~2x) to the method described in
 /// https://ed25519.cr.yp.to/ed25519-20110926.pdf.
-void tct_ed25519_pctable_gen (uint8_t *out);
+void tct_ed25519_pctable_gen (uint32_t *out);
 
 #endif
