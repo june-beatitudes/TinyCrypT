@@ -14,4 +14,7 @@ The CC20-P1305 implementation was not designed with side-channel attacks in mind
 
 ## Testing Validations
 - The SHA-2 implementations pass all 586 NIST-provided test cases without memory violations (according to `valgrind`).
-- The Ed25519 implementation passes all 1024 provided test cases (though signatures can take up to 8ms)
+- The Ed25519 implementation passes all 1024 provided test cases without memory violations (according to `valgrind`).
+
+## Benchmarking
+- The 64-bit implementation of Ed25519 (automatically compiled against when the target platform supports `__uint128_t`) is able to generate a signature in 0.086ms on an Intel Core i3-1315U processor.
