@@ -25,4 +25,6 @@ bool tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
 /// https://ed25519.cr.yp.to/ed25519-20110926.pdf.
 void tct_ed25519_pctable_gen (uint32_t *out);
 
+void tct_ed25519_pctable_gen_64bit (uint64_t *out);
+
 #endif

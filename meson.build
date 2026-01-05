@@ -4,14 +4,19 @@ incdir = include_directories('tinycrypt')
 
 sources = [
     'tinycrypt/chacha20-poly1305.c',
-    'tinycrypt/ed25519.c',
     'tinycrypt/kangarootwelve128.c',
     'tinycrypt/sha2.c',
     'tinycrypt/x25519.c',
 ]
 
+if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
+    sources += 'tinycrypt/ed25519_64bit.c'
+else
+    sources += 'tinycrypt/ed25519.c'
+endif
+
 build_args = [
-    '-Os',
+    '-O3',
     '-ffreestanding',
 ]
 
@@ -36,9 +41,10 @@ ed25519_test_sources = [
     'tests/src/ed25519/verify_happy.cpp',
     'tests/src/ed25519/verify_sad.cpp',
     'tests/src/ed25519/sign.cpp',
+    'tests/src/ed25519/keygen.cpp',
 ]
 
-if not meson.is_subproject()
+if not meson.is_subproject() and not meson.is_cross_build()
     add_languages('cpp')
     subdir('tests')
     test(

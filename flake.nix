@@ -14,14 +14,37 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      shl = pkgs.mkShell {
-        name = "tct-tooling-env";
+      aphrodite_shl = pkgs.mkShell {
+        name = "tct-tooling-env-aphrodite";
         packages = with pkgs; [
           ninja
           meson
           gcc
           clang-tools
-          gnumake
+          valgrind
+          bear
+          tokei
+        ];
+      };
+      teiresia_shl = pkgs.mkShell {
+        name = "tct-tooling-env-teiresia";
+        packages = with pkgs; [
+          ninja
+          meson
+          pkgsCross.aarch64-multiplatform.gcc
+          clang-tools
+          valgrind
+          bear
+          tokei
+        ];
+      };
+      demeter_shl = pkgs.mkShell {
+        name = "tct-tooling-env-demeter";
+        packages = with pkgs; [
+          ninja
+          meson
+          pkgsCross.mips64el-linux-gnuabin32.gcc
+          clang-tools
           valgrind
           bear
           tokei
@@ -29,6 +52,10 @@
       };
     in
     {
-      devShells.${system}.default = shl;
+      devShells.${system} = {
+        default = aphrodite_shl;
+        teiresia = teiresia_shl;
+        demeter = demeter_shl;
+      };
     };
 }

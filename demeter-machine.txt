@@ -1,0 +1,12 @@
+[binaries]
+c = 'mips64el-unknown-linux-gnuabin32-gcc'
+cpp = 'mips64el-unknown-linux-gnuabin32-g++'
+ar = 'mips64el-unknown-linux-gnuabin32-ar'
+windres = 'mips64el-unknown-linux-gnuabin32-windres'
+strip = 'mips64el-unknown-linux-gnuabin32-strip'
+
+[host_machine]
+system = 'linux'
+cpu_family = 'x86-64'
+cpu = 'x86-64'
+endian = 'little'

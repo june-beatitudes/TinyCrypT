@@ -1,0 +1,12 @@
+[binaries]
+c = 'aarch64-unknown-linux-gnu-gcc'
+cpp = 'aarch64-unknown-linux-gnu-g++'
+ar = 'aarch64-unknown-linux-gnu-ar'
+windres = 'aarch64-unknown-linux-gnu-windres'
+strip = 'aarch64-unknown-linux-gnu-strip'
+
+[host_machine]
+system = 'linux'
+cpu_family = 'x86-64'
+cpu = 'x86-64'
+endian = 'little'

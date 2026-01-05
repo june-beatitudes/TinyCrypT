@@ -217,6 +217,56 @@ modp512 (const uint32_t *in, uint32_t *out)
 }
 
 static void
+modp512_postsub (const uint32_t *in, uint32_t *out)
+{
+  uint32_t P[16] = {
+    0xffffffed, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0x7fffffff, 0x0,        0x0,        0x0,        0x0,
+    0x0,        0x0,        0x0,        0x0,
+  };
+  uint32_t ZERO[16] = {
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+  };
+  uint32_t *dummy = (in[15] & (1 << 31)) ? P : ZERO;
+  uint32_t i0[16];
+  for (unsigned int i = 0; i < 16; ++i)
+    {
+      i0[i] = in[i];
+    }
+  add512 (i0, dummy);
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      out[i] = i0[i];
+    }
+}
+
+static void
+modp512_postadd (const uint32_t *in, uint32_t *out)
+{
+  uint32_t P[16] = {
+    0xffffffed, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0x7fffffff, 0x0,        0x0,        0x0,        0x0,
+    0x0,        0x0,        0x0,        0x0,
+  };
+  uint32_t ZERO[16] = {
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+  };
+  uint32_t *dummy = greater288 (in, P) ? P : ZERO;
+  uint32_t i0[16];
+  for (unsigned int i = 0; i < 16; ++i)
+    {
+      i0[i] = in[i];
+    }
+  sub512 (i0, dummy);
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      out[i] = i0[i];
+    }
+}
+
+static void
 mult256_modp (const uint32_t *a, const uint32_t *b, uint32_t *out)
 {
   uint32_t intermediate[16];
@@ -239,7 +289,7 @@ sub256_modp (const uint32_t *a, const uint32_t *b, uint32_t *out)
       intermediates[1][i] = 0x0;
     }
   sub512 (intermediates[0], intermediates[1]);
-  modp512 (intermediates[0], out);
+  modp512_postsub (intermediates[0], out);
 }
 
 static void
@@ -257,59 +307,99 @@ add256_modp (const uint32_t *a, const uint32_t *b, uint32_t *out)
       intermediates[1][i] = 0x0;
     }
   add512 (intermediates[0], intermediates[1]);
-  modp512 (intermediates[0], out);
+  modp512_postadd (intermediates[0], out);
+}
+
+static void
+to_montgomery (const uint32_t *in, uint32_t *out)
+{
+  uint32_t buf[16];
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      buf[8 + i] = in[i];
+      buf[i] = 0x0;
+    }
+  modp512 (buf, out);
+}
+
+static void
+from_montgomery (const uint32_t *in, uint32_t *out)
+{
+  const uint32_t RECIPROCAL[8] = {
+    0x9435e50a, 0x435e50d7, 0x35e50d79, 0x5e50d794,
+    0xe50d7943, 0x50d79435, 0x0d79435e, 0x179435e5,
+  };
+  mult256_modp (RECIPROCAL, in, out);
+}
+
+static void
+montgomery_multiply (const uint32_t *a, const uint32_t *b, uint32_t *out)
+{
+  uint32_t P[8] = {
+    0xffffffed, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0x7fffffff,
+  };
+  uint32_t FACTOR[8] = {
+    0x286bca1b, 0x86bca1af, 0x6bca1af2, 0xbca1af28,
+    0xca1af286, 0xa1af286b, 0x1af286bc, 0x2f286bca,
+  };
+  uint32_t ZERO[8] = {
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+  };
+  uint32_t prod[16];
+  mult256 (a, b, prod);
+  uint32_t i0[16], i1[16];
+  mult256 (prod, FACTOR, i0);
+  mult256 (i0, P, i1);
+  add512 (i1, prod);
+  uint32_t *dummy = greater256 (i1 + 8, P) ? P : ZERO;
+  sub256 (i1 + 8, dummy);
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      out[i] = i1[i + 8];
+    }
 }
 
 static void
 inv256_modp (const uint32_t *x, uint32_t *out)
 {
-  uint32_t buf[16];
-  uint32_t *i0 = buf;
-  uint32_t *i1 = buf + 8;
+  uint32_t i0[8];
+  uint32_t x_red[8];
+  to_montgomery (x, i0);
   for (unsigned int i = 0; i < 8; ++i)
     {
-      i0[i] = x[i];
+      x_red[i] = i0[i];
     }
   for (unsigned int i = 0; i < 254; ++i)
     {
-      mult256_modp (i0, i0, i1);
-      uint32_t *t1 = i1;
-      i1 = i0;
-      i0 = t1;
+      montgomery_multiply (i0, i0, i0);
       if (i != 251 && i != 249)
         {
-          mult256_modp (i0, x, i1);
-          uint32_t *t0 = i1;
-          i1 = i0;
-          i0 = t0;
+          montgomery_multiply (i0, x_red, i0);
         }
     }
-  for (unsigned int i = 0; i < 8; ++i)
-    {
-      out[i] = i0[i];
-    }
+  from_montgomery (i0, out);
 }
 
 static void
 pow256_2523_modp (const uint32_t *in, uint32_t *out)
 {
   uint32_t i0[8];
+  to_montgomery (in, i0);
+  uint32_t in_red[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
-      i0[i] = in[i];
+      in_red[i] = i0[i];
     }
   for (int i = 250; i >= 0; --i)
     {
-      mult256_modp (i0, i0, i0);
+      montgomery_multiply (i0, i0, i0);
       if (i != 1)
         {
-          mult256_modp (i0, in, i0);
+          montgomery_multiply (i0, in_red, i0);
         }
     }
-  for (unsigned int i = 0; i < 8; ++i)
-    {
-      out[i] = i0[i];
-    }
+  from_montgomery (i0, out);
 }
 
 static bool
@@ -612,7 +702,7 @@ tct_ed25519_pctable_gen (uint32_t *out)
 static void
 xB (const uint32_t *k, uint32_t *x, uint32_t *y, uint32_t *z, uint32_t *t)
 {
-  const uint32_t ONE[8] = {
+  uint32_t ONE[8] = {
     0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
   };
   for (unsigned int i = 0; i < 32; ++i)
@@ -674,7 +764,7 @@ tct_ed25519_keygen (const uint8_t *privkey, uint8_t *pubkey)
       to_le32 (y[i], pubkey + 4 * i);
     }
   pubkey[31] &= 0b01111111;
-  pubkey[31] |= x[0] << 31;
+  pubkey[31] |= x[0] << 7;
 }
 
 void
@@ -716,10 +806,13 @@ tct_ed25519_sign (const uint8_t *msg, const uint64_t msg_len,
   inv256_modp (rBz, rBz);
   mult256_modp (rBz, rBx, rBx);
   mult256_modp (rBz, rBy, chunked);
-  for (unsigned int i = 0; i < 8; ++i)
-    {
-      to_le32 (chunked[i], signature + 4 * i);
-    }
+  for (unsigned int i = 0; i < 32; ++i) {
+    signature[i] = digest[i];
+  }
+  // for (unsigned int i = 0; i < 8; ++i)
+  //   {
+  //     to_le32 (chunked[i], signature + 4 * i);
+  //   }
   signature[31] &= 0b01111111;
   signature[31] |= (rBx[0] & 1) << 7;
   for (unsigned int i = 0; i < 32; ++i)
