@@ -7,6 +7,6 @@ strip = 'aarch64-unknown-linux-gnu-strip'
 
 [host_machine]
 system = 'linux'
-cpu_family = 'x86-64'
-cpu = 'x86-64'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
 endian = 'little'

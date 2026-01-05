@@ -7,6 +7,6 @@ strip = 'mips64el-unknown-linux-gnuabin32-strip'
 
 [host_machine]
 system = 'linux'
-cpu_family = 'x86-64'
-cpu = 'x86-64'
+cpu_family = 'mips64'
+cpu = 'mips64'
 endian = 'little'
