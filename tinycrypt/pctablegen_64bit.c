@@ -5,11 +5,11 @@
 int
 main (int argc, const char **argv)
 {
-  uint64_t lut[7680];
+  uint64_t lut[11520];
   tct_ed25519_pctable_gen_64bit (lut);
   printf ("#include <stdint.h>\n");
-  printf ("const static uint64_t PRECOMPUTE_TABLE[7680] = {\n    ");
-  for (unsigned int i = 0; i < 7680; ++i)
+  printf ("const static uint64_t PRECOMPUTE_TABLE[11520] = {\n    ");
+  for (unsigned int i = 0; i < 11520; ++i)
     {
       printf ("0x%lx, ", lut[i]);
       if (i % 8 == 7)

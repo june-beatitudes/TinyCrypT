@@ -26,32 +26,10 @@ to_le64 (const uint64_t x, uint8_t *out)
 }
 
 static void
-add_shifted (uint64_t *h, const __uint128_t c, const unsigned int shift)
-{
-  uint64_t digits[2];
-  digits[0] = c & 0xffffffffffffffff;
-  digits[1] = (c >> 64) & 0xffffffffffffffff;
-  __uint128_t accumulator = 0;
-  unsigned int i;
-  for (i = shift; i < shift + 2 && i < 8; ++i)
-    {
-      accumulator += (__uint128_t)digits[i - shift] + (__uint128_t)h[i];
-      h[i] = accumulator & 0xffffffffffffffff;
-      accumulator >>= 64;
-    }
-  while (i < 8)
-    {
-      accumulator += (__uint128_t)h[i];
-      h[i] = accumulator & 0xffffffffffffffff;
-      accumulator >>= 64;
-      ++i;
-    }
-}
-
-static void
 mult256 (const uint64_t *a, const uint64_t *b, uint64_t *out)
 {
   uint64_t a_int[4], b_int[4];
+  __uint128_t intermediate[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   for (unsigned int i = 0; i < 4; ++i)
     {
       a_int[i] = a[i];
@@ -63,10 +41,61 @@ mult256 (const uint64_t *a, const uint64_t *b, uint64_t *out)
     {
       for (unsigned int j = 0; j < 4; ++j)
         {
-          __uint128_t prod = (__uint128_t)a_int[i] * (__uint128_t)b_int[j];
-          add_shifted (out, prod, i + j);
+          intermediate[i + j] += (__uint128_t)a_int[i] * (__uint128_t)b_int[j];
+          if (i + j < 7)
+            {
+              intermediate[i + j + 1] += intermediate[i + j] >> 64;
+            }
+          intermediate[i + j] &= 0xffffffffffffffff;
         }
     }
+  for (unsigned int k = 0; k < 7; ++k)
+    {
+      intermediate[k + 1] += intermediate[k] >> 64;
+      out[k] = intermediate[k] & 0xffffffffffffffff;
+    }
+  out[7] = intermediate[7] & 0xffffffffffffffff;
+}
+
+static void
+square256 (const uint64_t *in, uint64_t *out)
+{
+  uint64_t a_int[4];
+  __uint128_t intermediate[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  for (unsigned int i = 0; i < 4; ++i)
+    {
+      a_int[i] = in[i];
+      out[i] = 0x0;
+      out[4 + i] = 0x0;
+    }
+  for (unsigned int i = 0; i < 4; ++i)
+    {
+      intermediate[2 * i] += (__uint128_t)a_int[i] * (__uint128_t)a_int[i];
+      intermediate[2 * i + 1] += intermediate[2 * i] >> 64;
+      intermediate[2 * i] &= 0xffffffffffffffff;
+      for (unsigned int j = i + 1; j < 4; ++j)
+        {
+          __uint128_t prod = (__uint128_t)a_int[i] * (__uint128_t)a_int[j];
+          intermediate[i + j] += prod;
+          if (i + j < 7)
+            {
+              intermediate[i + j + 1] += intermediate[i + j] >> 64;
+            }
+          intermediate[i + j] &= 0xffffffffffffffff;
+          intermediate[i + j] += prod;
+          if (i + j < 7)
+            {
+              intermediate[i + j + 1] += intermediate[i + j] >> 64;
+            }
+          intermediate[i + j] &= 0xffffffffffffffff;
+        }
+    }
+  for (unsigned int k = 0; k < 7; ++k)
+    {
+      intermediate[k + 1] += intermediate[k] >> 64;
+      out[k] = intermediate[k] & 0xffffffffffffffff;
+    }
+  out[7] = intermediate[7] & 0xffffffffffffffff;
 }
 
 static bool
@@ -298,6 +327,14 @@ mult256_modp (const uint64_t *a, const uint64_t *b, uint64_t *out)
 }
 
 static void
+square256_modp (const uint64_t *in, uint64_t *out)
+{
+  uint64_t intermediate[8];
+  square256 (in, intermediate);
+  modp512 (intermediate, out);
+}
+
+static void
 sub256_modp (const uint64_t *a, const uint64_t *b, uint64_t *out)
 {
   uint64_t intermediates[2][8];
@@ -343,7 +380,7 @@ inv256_modp (const uint64_t *in, uint64_t *out)
     }
   for (unsigned int i = 0; i < 254; ++i)
     {
-      mult256_modp (i0, i0, i0);
+      square256_modp (i0, i0);
       if (i != 251 && i != 249)
         {
           mult256_modp (i0, in, i0);
@@ -364,7 +401,7 @@ pow256_2523_modp (const uint64_t *in, uint64_t *out)
     }
   for (int i = 250; i >= 0; --i)
     {
-      mult256_modp (out, out, out);
+      square256_modp (out, out);
       if (i != 1)
         {
           mult256_modp (out, in, out);
@@ -396,8 +433,11 @@ decode256 (const uint8_t *point, uint64_t *x, uint64_t *y)
   uint64_t v[4];
   uint64_t u[4];
   uint64_t i0[4], i1[4];
-  mult256_modp (y, y, u);
-  mult256_modp (y, y, v);
+  square256_modp (y, u);
+  for (unsigned int i = 0; i < 4; ++i)
+    {
+      v[i] = u[i];
+    }
   sub256_modp (u, ONE, u);
   mult256_modp (v, D, v);
   add256_modp (v, ONE, v);
@@ -412,7 +452,7 @@ decode256 (const uint8_t *point, uint64_t *x, uint64_t *y)
   pow256_2523_modp (i1, x);
   mult256_modp (x, i0, x);
 
-  mult256_modp (x, x, i0);
+  square256_modp (x, i0);
   mult256_modp (i0, v, i0);
   sub256_modp (i0, u, i0);
   const uint64_t *mask;
@@ -468,12 +508,8 @@ addpoints (const uint64_t *x1, const uint64_t *y1, const uint64_t *z1,
     0x0,
     0x0,
   };
-  const uint64_t D[4] = {
-    0x75eb4dca135978a3,
-    0x00700a4d4141d8ab,
-    0x8cc740797779e898,
-    0x52036cee2b6ffe73,
-  };
+  const uint64_t D2[4] = { 0xebd69b9426b2f146, 0x00e0149a8283b156,
+                           0x198e80f2eef3d130, 0xa406d9dc56dffce7 };
   uint64_t intermediates[8][4];
   sub256_modp (y1, x1, intermediates[0]);
   sub256_modp (y2, x2, intermediates[1]);
@@ -482,8 +518,7 @@ addpoints (const uint64_t *x1, const uint64_t *y1, const uint64_t *z1,
   add256_modp (y2, x2, intermediates[2]);
   mult256_modp (intermediates[1], intermediates[2], intermediates[1]);
   mult256_modp (t1, t2, intermediates[2]);
-  mult256_modp (intermediates[2], TWO, intermediates[2]);
-  mult256_modp (intermediates[2], D, intermediates[2]);
+  mult256_modp (intermediates[2], D2, intermediates[2]);
   mult256_modp (z1, z2, intermediates[7]);
   mult256_modp (intermediates[7], TWO, intermediates[7]);
   sub256_modp (intermediates[1], intermediates[0], intermediates[3]);
@@ -494,6 +529,28 @@ addpoints (const uint64_t *x1, const uint64_t *y1, const uint64_t *z1,
   mult256_modp (intermediates[5], intermediates[6], y3);
   mult256_modp (intermediates[4], intermediates[5], z3);
   mult256_modp (intermediates[3], intermediates[6], t3);
+}
+
+static void
+doublepoint (const uint64_t *x1, const uint64_t *y1, const uint64_t *z1,
+             const uint64_t *t1, uint64_t *x3, uint64_t *y3, uint64_t *z3,
+             uint64_t *t3)
+{
+  uint64_t intermediates[7][4];
+  mult256_modp (x1, x1, intermediates[0]);
+  mult256_modp (y1, y1, intermediates[1]);
+  mult256_modp (z1, z1, intermediates[2]);
+  add256_modp (intermediates[2], intermediates[2], intermediates[2]);
+  add256_modp (intermediates[0], intermediates[1], intermediates[3]);
+  add256_modp (x1, y1, intermediates[4]);
+  square256_modp (intermediates[4], intermediates[4]);
+  sub256_modp (intermediates[3], intermediates[4], intermediates[4]);
+  sub256_modp (intermediates[0], intermediates[1], intermediates[5]);
+  add256_modp (intermediates[2], intermediates[5], intermediates[6]);
+  mult256_modp (intermediates[4], intermediates[6], x3);
+  mult256_modp (intermediates[3], intermediates[5], y3);
+  mult256_modp (intermediates[3], intermediates[4], t3);
+  mult256_modp (intermediates[5], intermediates[6], z3);
 }
 
 static bool
@@ -573,10 +630,10 @@ scalarmult (const uint64_t *k, const uint64_t *x_in, const uint64_t *y_in,
     }
   for (int i = 63; i >= 0; --i)
     {
-      addpoints (x2, y2, z2, t2, x2, y2, z2, t2, x2, y2, z2, t2);
-      addpoints (x2, y2, z2, t2, x2, y2, z2, t2, x2, y2, z2, t2);
-      addpoints (x2, y2, z2, t2, x2, y2, z2, t2, x2, y2, z2, t2);
-      addpoints (x2, y2, z2, t2, x2, y2, z2, t2, x2, y2, z2, t2);
+      doublepoint (x2, y2, z2, t2, x2, y2, z2, t2);
+      doublepoint (x2, y2, z2, t2, x2, y2, z2, t2);
+      doublepoint (x2, y2, z2, t2, x2, y2, z2, t2);
+      doublepoint (x2, y2, z2, t2, x2, y2, z2, t2);
       uint8_t ind = (k[i / 16] >> (4 * (i % 16))) & 0xf;
       addpoints (lut[ind][0], lut[ind][1], lut[ind][2], lut[ind][3], x2, y2,
                  z2, t2, x2, y2, z2, t2);
@@ -667,6 +724,8 @@ xB_lowmem (const uint64_t *k, uint64_t *x, uint64_t *y, uint64_t *z,
 void
 tct_ed25519_pctable_gen_64bit (uint64_t *out)
 {
+  const uint64_t D2[4] = { 0xebd69b9426b2f146, 0x00e0149a8283b156,
+                           0x198e80f2eef3d130, 0xa406d9dc56dffce7 };
   uint64_t a[8], b[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
@@ -689,16 +748,46 @@ tct_ed25519_pctable_gen_64bit (uint64_t *out)
       for (unsigned int j = 0; j < 15; ++j)
         {
           // We don't need `t` where we're going
-          uint64_t *x_out = &(out[15 * 4 * 2 * i + 4 * 2 * j]);
-          uint64_t *y_out = &(out[15 * 4 * 2 * i + 4 * 2 * j + 4]);
-          xB_lowmem (a, x_out, y_out, z, t);
+          uint64_t *u_out = &(out[15 * 4 * 3 * i + 4 * 3 * j]);
+          uint64_t *v_out = &(out[15 * 4 * 3 * i + 4 * 3 * j + 4]);
+          uint64_t *w_out = &(out[15 * 4 * 3 * i + 4 * 3 * j + 8]);
+          uint64_t x[4], y[4];
+          xB_lowmem (a, x, y, z, t);
           uint64_t z_inv[4];
           inv256_modp (z, z_inv);
-          mult256_modp (x_out, z_inv, x_out);
-          mult256_modp (y_out, z_inv, y_out);
+          mult256_modp (x, z_inv, x);
+          mult256_modp (y, z_inv, y);
+          sub256_modp (y, x, u_out);
+          add256_modp (y, x, v_out);
+          mult256_modp (y, x, w_out);
+          mult256_modp (w_out, D2, w_out);
           add512 (a, b);
         }
     }
+}
+
+static void
+addpoints_precompute (const uint64_t *x1, const uint64_t *y1,
+                      const uint64_t *z1, const uint64_t *t1,
+                      const uint64_t *u2, const uint64_t *v2,
+                      const uint64_t *w2, uint64_t *x3, uint64_t *y3,
+                      uint64_t *z3, uint64_t *t3)
+{
+  uint64_t intermediates[8][4];
+  sub256_modp (y1, x1, intermediates[0]);
+  mult256_modp (intermediates[0], u2, intermediates[0]);
+  add256_modp (y1, x1, intermediates[1]);
+  mult256_modp (intermediates[1], v2, intermediates[1]);
+  mult256_modp (t1, w2, intermediates[2]);
+  add256_modp (z1, z1, intermediates[7]);
+  sub256_modp (intermediates[1], intermediates[0], intermediates[3]);
+  sub256_modp (intermediates[7], intermediates[2], intermediates[4]);
+  add256_modp (intermediates[7], intermediates[2], intermediates[5]);
+  add256_modp (intermediates[1], intermediates[0], intermediates[6]);
+  mult256_modp (intermediates[3], intermediates[4], x3);
+  mult256_modp (intermediates[5], intermediates[6], y3);
+  mult256_modp (intermediates[4], intermediates[5], z3);
+  mult256_modp (intermediates[3], intermediates[6], t3);
 }
 
 #ifndef TCT_LOWMEM
@@ -708,12 +797,6 @@ tct_ed25519_pctable_gen_64bit (uint64_t *out)
 static void
 xB (const uint64_t *k, uint64_t *x, uint64_t *y, uint64_t *z, uint64_t *t)
 {
-  uint64_t ONE[4] = {
-    0x1,
-    0x0,
-    0x0,
-    0x0,
-  };
   for (unsigned int i = 0; i < 4; ++i)
     {
       x[i] = y[i] = z[i] = t[i] = 0x0;
@@ -723,16 +806,13 @@ xB (const uint64_t *k, uint64_t *x, uint64_t *y, uint64_t *z, uint64_t *t)
   for (unsigned int i = 0; i < 64; ++i)
     {
       uint64_t ri = (k[i / 16] >> (4 * (i % 16))) & 0xf;
-      uint64_t t0[4];
       if (ri != 0)
         {
-          mult256_modp (
-              &PRECOMPUTE_TABLE[i * 15 * 4 * 2 + (ri - 1) * 4 * 2],
-              &PRECOMPUTE_TABLE[i * 15 * 4 * 2 + (ri - 1) * 4 * 2 + 4], t0);
-          addpoints (x, y, z, t,
-                     &PRECOMPUTE_TABLE[i * 15 * 4 * 2 + (ri - 1) * 4 * 2],
-                     &PRECOMPUTE_TABLE[i * 15 * 4 * 2 + (ri - 1) * 4 * 2 + 4],
-                     ONE, t0, x, y, z, t);
+          addpoints_precompute (
+              x, y, z, t, &PRECOMPUTE_TABLE[i * 15 * 4 * 3 + (ri - 1) * 4 * 3],
+              &PRECOMPUTE_TABLE[i * 15 * 4 * 3 + (ri - 1) * 4 * 3 + 4],
+              &PRECOMPUTE_TABLE[i * 15 * 4 * 3 + (ri - 1) * 4 * 3 + 8], x, y,
+              z, t);
         }
     }
 }
