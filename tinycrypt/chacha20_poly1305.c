@@ -1,12 +1,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "tinycrypt/chacha20-poly1305.h"
+#include "tinycrypt/chacha20_poly1305.h"
 
-static uint32_t
-rotl_32 (uint32_t x, int c)
+typedef uint32_t dwpacked __attribute__ ((vector_size (16)));
+
+static dwpacked
+rotl_32 (dwpacked x, int c)
 {
-  return (x << c) | ((x & 0xffffffff) >> (32 - c));
+  return (x << c) | (x >> (32 - c));
 }
 
 static uint32_t
@@ -47,44 +49,41 @@ to_le32 (uint32_t u, uint8_t *x)
   while (false);
 
 static void
-cc20_block (const uint8_t *key, const uint32_t counter, const uint8_t *nonce,
+cc20_block (const uint8_t *key, const uint16_t counter, const uint8_t *nonce,
             uint8_t *state_out)
 {
-  uint32_t initial_state[16]
-      = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
-  for (uint32_t i = 0; i < 8; ++i)
-    {
-      initial_state[i + 4] = from_le32 (key + i * 4);
-    }
-  initial_state[12] = counter;
-  for (uint32_t i = 0; i < 3; ++i)
-    {
-      initial_state[i + 13] = from_le32 (nonce + i * 4);
-    }
-  uint32_t state[16];
-  for (uint32_t i = 0; i < 16; ++i)
+  dwpacked initial_state[4]
+      = { { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 } };
+  initial_state[1] = (dwpacked){ from_le32 (key), from_le32 (key + 4),
+                                 from_le32 (key + 8), from_le32 (key + 12) };
+  initial_state[2] = (dwpacked){ from_le32 (key + 16), from_le32 (key + 20),
+                                 from_le32 (key + 24), from_le32 (key + 28) };
+  initial_state[3] = (dwpacked){ counter & 0xff, (counter >> 8) & 0xff,
+                                 from_le32 (nonce), from_le32 (nonce + 4) };
+  dwpacked state[4];
+  for (uint32_t i = 0; i < 4; ++i)
     {
       state[i] = initial_state[i];
     }
   for (uint32_t i = 0; i < 10; ++i)
     {
-      CC20_QR (state, 0, 4, 8, 12);
-      CC20_QR (state, 1, 5, 9, 13);
-      CC20_QR (state, 2, 6, 10, 14);
-      CC20_QR (state, 3, 7, 11, 15);
-      CC20_QR (state, 0, 5, 10, 15);
-      CC20_QR (state, 1, 6, 11, 12);
-      CC20_QR (state, 2, 7, 8, 13);
-      CC20_QR (state, 3, 4, 9, 14);
+      CC20_QR (state, 0, 1, 2, 3);
+      state[1] = __builtin_shufflevector (state[1], state[1], 1, 2, 3, 0);
+      state[2] = __builtin_shufflevector (state[2], state[2], 2, 3, 0, 1);
+      state[3] = __builtin_shufflevector (state[3], state[3], 3, 0, 1, 2);
+      CC20_QR (state, 0, 1, 2, 3);
+      state[1] = __builtin_shufflevector (state[1], state[1], 3, 0, 1, 2);
+      state[2] = __builtin_shufflevector (state[2], state[2], 2, 3, 0, 1);
+      state[3] = __builtin_shufflevector (state[3], state[3], 1, 2, 3, 0);
     }
 
-  for (uint32_t i = 0; i < 16; ++i)
+  for (uint32_t i = 0; i < 4; ++i)
     {
       state[i] += initial_state[i];
     }
   for (unsigned int i = 0; i < 16; ++i)
     {
-      to_le32 (state[i], state_out + 4 * i);
+      to_le32 (state[i / 4][i % 4], state_out + 4 * i);
     }
 }
 
@@ -294,7 +293,8 @@ modp_264 (uint8_t *in, uint8_t *out)
 }
 
 static void
-poly1305_mac_rolling (const uint8_t *msg, const uint8_t *key, uint8_t *a)
+poly1305_mac_rolling (const uint8_t *msg, const uint8_t *key,
+                      const uint8_t blocklen, uint8_t *a)
 {
   uint8_t r[32];
   for (unsigned int i = 0; i < 32; ++i)
@@ -308,15 +308,15 @@ poly1305_mac_rolling (const uint8_t *msg, const uint8_t *key, uint8_t *a)
 
   poly1305_clamp (r);
   uint8_t n[32];
-  for (unsigned int i = 0; i < 32; ++i)
+  for (unsigned int i = blocklen; i < 32; ++i)
     {
       n[i] = 0x0;
     }
-  for (unsigned int i = 0; i < 16; ++i)
+  for (unsigned int i = 0; i < 16 && i < blocklen; ++i)
     {
       n[i] = msg[i];
     }
-  n[16] = 0x1;
+  n[blocklen] = 0x1;
   add256 (a, n);
   uint8_t intermediate[33];
   mult256 (r, a, intermediate);
@@ -347,12 +347,6 @@ poly1305_mac_finish (uint8_t *a, const uint8_t *key)
   add256 (a, s);
 }
 
-static void
-poly1305_keygen (const uint8_t *key, const uint8_t *nonce, uint8_t *out)
-{
-  cc20_block (key, 0, nonce, out);
-}
-
 void
 tct_aead_chacha20_poly1305 (const uint8_t *aad, const uint64_t aad_len,
                             const uint8_t *key, const uint8_t *nonce,
@@ -360,53 +354,41 @@ tct_aead_chacha20_poly1305 (const uint8_t *aad, const uint64_t aad_len,
                             const uint64_t plaintext_len, uint8_t *cipher_out,
                             uint8_t *mac_out)
 {
-  uint8_t otk[32];
-  poly1305_keygen (key, nonce, otk);
+  uint8_t otk[64];
+  cc20_block (key, 0, nonce, otk);
   cc20_encrypt (key, 1, nonce, plaintext, plaintext_len, cipher_out);
   poly1305_mac_init (mac_out);
   uint8_t buf[16];
-  for (uint64_t i = 0; i < aad_len / 16; ++i)
+  uint64_t total_len = 16 + aad_len + plaintext_len;
+  uint8_t aad_len_le[8], plaintext_len_le[8];
+  to_le64 (aad_len, aad_len_le);
+  to_le64 (plaintext_len, plaintext_len_le);
+  for (unsigned int i = 0; i < total_len; ++i)
     {
-      for (unsigned int j = 0; j < 16; ++j)
+      if (i < aad_len)
         {
-          buf[j] = aad[i * 16 + j];
+          buf[i % 16] = aad[i];
         }
-      poly1305_mac_rolling (buf, otk, mac_out);
-    }
-  for (unsigned int i = 0; i < aad_len % 16; ++i)
-    {
-      buf[i] = aad[(aad_len / 16) * 16 + i];
-    }
-  for (unsigned int i = aad_len % 16; i < 16; ++i)
-    {
-      buf[i] = 0x0;
-    }
-  if (aad_len % 16 != 0)
-    {
-      poly1305_mac_rolling (buf, otk, mac_out);
-    }
-  for (uint64_t i = 0; i < plaintext_len / 16; ++i)
-    {
-      for (unsigned int j = 0; j < 16; ++j)
+      else if (i < aad_len + 8)
         {
-          buf[j] = cipher_out[i * 16 + j];
+          buf[i % 16] = aad_len_le[i - aad_len];
         }
-      poly1305_mac_rolling (buf, otk, mac_out);
+      else if (i < aad_len + 8 + plaintext_len)
+        {
+          buf[i % 16] = cipher_out[i - aad_len - 8];
+        }
+      else if (i < aad_len + 16 + plaintext_len)
+        {
+          buf[i % 16] = plaintext_len_le[i - aad_len - 16 - plaintext_len];
+        }
+      if (i % 16 == 15)
+        {
+          poly1305_mac_rolling (buf, otk, 16, mac_out);
+        }
     }
-  for (unsigned int i = 0; i < plaintext_len % 16; ++i)
+  if (total_len % 16 != 0)
     {
-      buf[i] = cipher_out[(plaintext_len / 16) * 16 + i];
+      poly1305_mac_rolling (buf, otk, total_len % 16, mac_out);
     }
-  for (unsigned int i = plaintext_len % 16; i < 16; ++i)
-    {
-      buf[i] = 0x0;
-    }
-  if (plaintext_len % 16 != 0)
-    {
-      poly1305_mac_rolling (buf, otk, mac_out);
-    }
-  to_le64 (aad_len, buf);
-  to_le64 (plaintext_len, buf + 8);
-  poly1305_mac_rolling (buf, otk, mac_out);
   poly1305_mac_finish (mac_out, otk);
 }
