@@ -29,7 +29,7 @@ add_shifted (uint8_t *h, const uint64_t c, const unsigned int shift)
   to_le64 (c, digits);
   uint16_t accumulator = 0;
   unsigned int i;
-  for (i = shift; i <= shift + 8 && i < 64; ++i)
+  for (i = shift; i < shift + 8 && i < 64; ++i)
     {
       accumulator += digits[i - shift] + h[i];
       h[i] = accumulator & 0xFF;
@@ -188,7 +188,7 @@ modp_512 (const uint8_t *in, uint8_t *out)
       sub512 (accumulator, approx_dividend);
     }
   uint8_t dummy_buf[64];
-  uint8_t dummy_val = (greater264 (P, accumulator)) ? 0x1 : 0x0;
+  uint8_t dummy_val = (greater264 (accumulator, P)) ? 0x1 : 0x0;
   for (unsigned int i = 0; i < 64; ++i)
     {
       dummy_buf[i] = P[i] * dummy_val;

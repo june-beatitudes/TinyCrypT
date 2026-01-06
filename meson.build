@@ -5,7 +5,6 @@ incdir = include_directories('tinycrypt')
 sources = [
     'tinycrypt/kangarootwelve128.c',
     'tinycrypt/sha2.c',
-    'tinycrypt/x25519.c',
 ]
 
 if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
@@ -18,6 +17,12 @@ if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
     sources += 'tinycrypt/chacha20_poly1305_64bit.c'
 else
     sources += 'tinycrypt/chacha20_poly1305.c'
+endif
+
+if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
+    sources += 'tinycrypt/x25519_64bit.c'
+else
+    sources += 'tinycrypt/x25519.c'
 endif
 
 build_args = [
@@ -53,6 +58,10 @@ cc20_p1305_test_sources = [
     'tests/src/chacha20-poly1305/all.cpp',
 ]
 
+x25519_test_sources = [
+    'tests/src/x25519/all.cpp',
+]
+
 if not meson.is_subproject() and not meson.is_cross_build()
     add_languages('cpp')
     subdir('tests')
@@ -83,6 +92,17 @@ if not meson.is_subproject() and not meson.is_cross_build()
         executable(
             'cc20_p1305_tests',
             cc20_p1305_test_sources,
+            include_directories: incdir,
+            link_with: target,
+            dependencies: test_dep,
+            install: false
+        )
+    )
+    test(
+        'x25519_tests',
+        executable(
+            'x25519_tests',
+            x25519_test_sources,
             include_directories: incdir,
             link_with: target,
             dependencies: test_dep,
