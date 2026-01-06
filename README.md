@@ -17,4 +17,5 @@ The CC20-P1305 implementation was not designed with side-channel attacks in mind
 - The Ed25519 implementation passes all 1024 provided test cases without memory violations (according to `valgrind`).
 
 ## Benchmarking
-- The 64-bit implementation of Ed25519 (automatically compiled against when the target platform supports `__uint128_t`) is able to generate a signature in 0.086ms on an Intel Core i3-1315U processor.
+- The 64-bit implementation of Ed25519 (automatically compiled against when the target platform supports `__uint128_t`) is able to generate a signature in 0.086ms on an Intel Core i3-1315U processor (single core).
+- The 64-bit implementation of ChaCha20-Poly1305 (automatically compiled against when the target platform supports `__uint128_t`) is able to encrypt, authenticate, decrypt, and verify 128MiB of data in 1.7s on an Intel Core i3-1315U processor (single core).
