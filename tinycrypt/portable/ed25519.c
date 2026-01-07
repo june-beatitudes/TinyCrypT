@@ -697,7 +697,7 @@ tct_ed25519_pctable_gen (uint32_t *out)
 
 #ifndef TCT_LOWMEM
 
-#include "tinycrypt/ed25519_precompute.h"
+#include "tinycrypt/portable/ed25519_precompute.h"
 
 static void
 xB (const uint32_t *k, uint32_t *x, uint32_t *y, uint32_t *z, uint32_t *t)
