@@ -3,26 +3,26 @@ project('TinyCrypT', 'c', version: '0.1.0')
 incdir = include_directories('tinycrypt')
 
 sources = [
-    'tinycrypt/kangarootwelve128.c',
-    'tinycrypt/sha2.c',
+    'tinycrypt/portable/kangarootwelve128.c',
+    'tinycrypt/portable/sha2.c',
 ]
 
 if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
-    sources += 'tinycrypt/ed25519_64bit.c'
+    sources += 'tinycrypt/x86_64_aarch64/ed25519.c'
 else
-    sources += 'tinycrypt/ed25519.c'
+    sources += 'tinycrypt/portable/ed25519.c'
 endif
 
 if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
-    sources += 'tinycrypt/chacha20_poly1305_64bit.c'
+    sources += 'tinycrypt/x86_64_aarch64/chacha20_poly1305.c'
 else
-    sources += 'tinycrypt/chacha20_poly1305.c'
+    sources += 'tinycrypt/portable/chacha20_poly1305.c'
 endif
 
 if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
-    sources += 'tinycrypt/x25519_64bit.c'
+    sources += 'tinycrypt/x86_64_aarch64/x25519.c'
 else
-    sources += 'tinycrypt/x25519.c'
+    sources += 'tinycrypt/portable/x25519.c'
 endif
 
 build_args = [
