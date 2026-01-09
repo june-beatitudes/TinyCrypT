@@ -42,10 +42,7 @@ mult256 (const uint64_t *a, const uint64_t *b, uint64_t *out)
       for (unsigned int j = 0; j < 4; ++j)
         {
           intermediate[i + j] += (__uint128_t)a_int[i] * (__uint128_t)b_int[j];
-          if (i + j < 7)
-            {
-              intermediate[i + j + 1] += intermediate[i + j] >> 64;
-            }
+          intermediate[i + j + 1] += intermediate[i + j] >> 64;
           intermediate[i + j] &= 0xffffffffffffffff;
         }
     }
@@ -77,16 +74,10 @@ square256 (const uint64_t *in, uint64_t *out)
         {
           __uint128_t prod = (__uint128_t)a_int[i] * (__uint128_t)a_int[j];
           intermediate[i + j] += prod;
-          if (i + j < 7)
-            {
-              intermediate[i + j + 1] += intermediate[i + j] >> 64;
-            }
+          intermediate[i + j + 1] += intermediate[i + j] >> 64;
           intermediate[i + j] &= 0xffffffffffffffff;
           intermediate[i + j] += prod;
-          if (i + j < 7)
-            {
-              intermediate[i + j + 1] += intermediate[i + j] >> 64;
-            }
+          intermediate[i + j + 1] += intermediate[i + j] >> 64;
           intermediate[i + j] &= 0xffffffffffffffff;
         }
     }
@@ -436,16 +427,13 @@ tct_x25519 (const uint8_t *key, const uint8_t *u, uint8_t *out)
       u_int[i] = from_le64 (u + i * 8);
       u_int[4 + i] = 0x0;
     }
+  u_int[3] &= 0x7fffffffffffffff;
   k_int[0] &= 0xfffffffffffffff8;
   k_int[3] &= 0x7fffffffffffffff;
   k_int[3] |= 0x4000000000000000;
   modp512_postadd (u_int, u_int);
-  uint64_t A24[4] = { 0x000000000001db41, 0x00, 0x00, 0x00 };
-  uint64_t buf[16];
-  uint64_t *x2 = buf;
-  uint64_t *z2 = buf + 4;
-  uint64_t *x3 = buf + 8;
-  uint64_t *z3 = buf + 12;
+  uint64_t A24[4] = { 0x1db41, 0, 0, 0 };
+  uint64_t x2[4], z2[4], x3[4], z3[4];
   unsigned int swap = 0;
   for (unsigned int i = 0; i < 4; ++i)
     {

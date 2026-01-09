@@ -63,6 +63,7 @@
           ninja
           meson
           esp-idf-xtensa
+          qemu-esp32
           clang-tools
           valgrind
           bear

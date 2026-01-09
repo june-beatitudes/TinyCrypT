@@ -18,7 +18,10 @@ main (int argc, char **argv)
           0x5c, 0xb4, 0xb8, 0x73, 0xf8, 0x8b, 0x59, 0x5a, 0x68, 0x79, 0x9f,
           0xa1, 0x52, 0xe6, 0xf8, 0xf7, 0x64, 0x7a, 0xac, 0x79, 0x57 };
   uint8_t actual[sizeof (EXPECTED)];
-  tct_x25519 (SCALAR, U, actual);
+  for (unsigned int i = 0; i < 10000; ++i)
+    {
+      tct_x25519 (SCALAR, U, actual);
+    }
   for (unsigned int i = 0; i < sizeof (actual); ++i)
     {
       printf ("%02x", actual[i]);

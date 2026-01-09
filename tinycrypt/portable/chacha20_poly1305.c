@@ -1,8 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "tinycrypt/chacha20_poly1305.h"
-
 typedef uint32_t dwpacked __attribute__ ((vector_size (16)));
 
 static dwpacked
