@@ -38,7 +38,7 @@
         packages = with pkgs; [
           ninja
           meson
-          pkgsCross.aarch64-multiplatform.gcc
+          pkgsCross.aarch64-multiplatform-musl.gcc
           clang-tools
           valgrind
           bear

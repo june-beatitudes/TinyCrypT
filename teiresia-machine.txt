@@ -1,9 +1,9 @@
 [binaries]
-c = 'aarch64-unknown-linux-gnu-gcc'
-cpp = 'aarch64-unknown-linux-gnu-g++'
-ar = 'aarch64-unknown-linux-gnu-ar'
-windres = 'aarch64-unknown-linux-gnu-windres'
-strip = 'aarch64-unknown-linux-gnu-strip'
+c = 'aarch64-unknown-linux-musl-gcc'
+cpp = 'aarch64-unknown-linux-musl-g++'
+ar = 'aarch64-unknown-linux-musl-ar'
+windres = 'aarch64-unknown-linux-musl-windres'
+strip = 'aarch64-unknown-linux-musl-strip'
 
 [host_machine]
 system = 'linux'
