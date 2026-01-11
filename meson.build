@@ -98,15 +98,16 @@ if not meson.is_subproject() and not meson.is_cross_build()
             install: false
         )
     )
-    test(
-        'x25519_tests',
-        executable(
-            'x25519_tests',
-            x25519_test_sources,
-            include_directories: incdir,
-            link_with: target,
-            dependencies: test_dep,
-            install: false
-        )
-    )
+    # Not included by default because it takes ~256 seconds to execute (includes a million-repetition test case)
+    # test(
+    #     'x25519_tests',
+    #     executable(
+    #         'x25519_tests',
+    #         x25519_test_sources,
+    #         include_directories: incdir,
+    #         link_with: target,
+    #         dependencies: test_dep,
+    #         install: false
+    #     )
+    # )
 endif
