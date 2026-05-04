@@ -1,37 +1,58 @@
-#include "tinycrypt/x25519.h"
 #include <stdint.h>
 #include <stdio.h>
 
-int
-main (int argc, char **argv)
+static void
+add_shifted (uint32_t *h, const uint32_t *c, uint8_t shift)
 {
-  const uint8_t SCALAR[]
-      = { 0x4b, 0x66, 0xe9, 0xd4, 0xd1, 0xb4, 0x67, 0x3c, 0x5a, 0xd2, 0x26,
-          0x91, 0x95, 0x7d, 0x6a, 0xf5, 0xc1, 0x1b, 0x64, 0x21, 0xe0, 0xea,
-          0x01, 0xd4, 0x2c, 0xa4, 0x16, 0x9e, 0x79, 0x18, 0xba, 0x0d };
-  const uint8_t U[]
-      = { 0xe5, 0x21, 0x0f, 0x12, 0x78, 0x68, 0x11, 0xd3, 0xf4, 0xb7, 0x95,
-          0x9d, 0x05, 0x38, 0xae, 0x2c, 0x31, 0xdb, 0xe7, 0x10, 0x6f, 0xc0,
-          0x3c, 0x3e, 0xfc, 0x4c, 0xd5, 0x49, 0xc7, 0x15, 0xa4, 0x93 };
-  const uint8_t EXPECTED[]
-      = { 0x95, 0xcb, 0xde, 0x94, 0x76, 0xe8, 0x90, 0x7d, 0x7a, 0xad, 0xe4,
-          0x5c, 0xb4, 0xb8, 0x73, 0xf8, 0x8b, 0x59, 0x5a, 0x68, 0x79, 0x9f,
-          0xa1, 0x52, 0xe6, 0xf8, 0xf7, 0x64, 0x7a, 0xac, 0x79, 0x57 };
-  uint8_t actual[sizeof (EXPECTED)];
-  for (unsigned int i = 0; i < 10000; ++i)
+  uint32_t shifted[16];
+  for (uint8_t i = 0; i < 16; ++i)
     {
-      tct_x25519 (SCALAR, U, actual);
+      shifted[i] = 0x0;
     }
-  for (unsigned int i = 0; i < sizeof (actual); ++i)
+  shifted[shift / 32] = (c[0] << (shift % 32)) & 0xffffffff;
+  for (uint8_t i = shift / 32 + 1; i < shift / 32 + 9 && i < 16; ++i)
     {
-      printf ("%02x", actual[i]);
+      if (shift % 32 == 0)
+        {
+          shifted[i] = c[i - shift / 32];
+        }
+      else
+        {
+          shifted[i] = (c[i - shift / 32 - 1] >> (32 - (shift % 32)))
+                       | ((c[i - shift / 32] << (shift % 32)) & 0xffffffff);
+        }
     }
-  printf ("\n");
+  if (shift / 32 + 9 < 16)
+    {
+      shifted[shift / 32 + 9] = c[8] >> (32 - (shift % 32));
+    }
+  uint64_t acc = 0;
+  for (unsigned int i = 0; i < 16; ++i)
+    {
+      acc += (uint64_t)h[i] + (uint64_t)shifted[i];
+      h[i] = acc & 0xffffffff;
+      acc >>= 32;
+    }
+}
 
-  for (unsigned int i = 0; i < sizeof (actual); ++i)
+int
+main ()
+{
+  uint32_t buf[16] = {
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+  };
+  uint32_t to_add[9] = {
+    0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+  };
+  for (uint16_t i = 0; i <= 255; ++i)
     {
-      printf ("%02x", EXPECTED[i]);
+      add_shifted (buf, to_add, i);
+      for (unsigned int i = 0; i < 16; ++i)
+        {
+          printf ("%08x", buf[15 - i]);
+        }
+      printf ("\n");
     }
-  printf ("\n");
   return 0;
 }

@@ -7,7 +7,7 @@ sources = [
     'tinycrypt/portable/sha2.c',
 ]
 
-if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
+if false#meson.get_compiler('c').has_define('__SIZEOF_INT128__')
     sources += 'tinycrypt/x86_64_aarch64/ed25519.c'
 else
     sources += 'tinycrypt/portable/ed25519.c'

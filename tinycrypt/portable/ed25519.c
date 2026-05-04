@@ -23,43 +23,106 @@ to_le32 (const uint32_t x, uint8_t *out)
 }
 
 static void
-add_shifted (uint32_t *h, const uint64_t c, const unsigned int shift)
+add_shifted (uint32_t *h, const uint32_t *c, uint8_t shift)
 {
-  uint32_t digits[2];
-  digits[0] = c & 0xffffffff;
-  digits[1] = (c >> 32) & 0xffffffff;
-  uint64_t accumulator = 0;
-  unsigned int i;
-  for (i = shift; i < shift + 2 && i < 16; ++i)
+  uint32_t shifted[16];
+  for (uint8_t i = 0; i < 16; ++i)
     {
-      accumulator += (uint64_t)digits[i - shift] + (uint64_t)h[i];
-      h[i] = accumulator & 0xffffffff;
-      accumulator >>= 32;
+      shifted[i] = 0x0;
     }
-  while (i < 16)
+  if (shift % 32 == 0)
     {
-      accumulator += (uint64_t)h[i];
-      h[i] = accumulator & 0xffffffff;
-      accumulator >>= 32;
-      ++i;
+      for (uint8_t i = shift / 32; i < 16 && i < shift / 32 + 9; ++i)
+        {
+          shifted[i] = c[i - shift / 32];
+        }
+    }
+  else
+    {
+      shifted[shift / 32] = (c[0] << (shift % 32)) & 0xffffffff;
+      for (uint8_t i = shift / 32 + 1; i < shift / 32 + 9 && i < 16; ++i)
+        {
+          shifted[i] = (c[i - shift / 32 - 1] >> (32 - (shift % 32)))
+                       | ((c[i - shift / 32] << (shift % 32)) & 0xffffffff);
+        }
+      if (shift / 32 + 9 < 16)
+        {
+          shifted[shift / 32 + 9] = c[8] >> (32 - (shift % 32));
+        }
+    }
+  uint64_t acc = 0;
+  for (unsigned int i = 0; i < 16; ++i)
+    {
+      acc += (uint64_t)h[i] + (uint64_t)shifted[i];
+      h[i] = acc & 0xffffffff;
+      acc >>= 32;
+    }
+}
+
+static void
+add288 (uint32_t *h, const uint32_t *c)
+{
+  uint64_t acc = 0;
+  for (unsigned int i = 0; i < 9; ++i)
+    {
+      acc += (uint64_t)h[i] + (uint64_t)c[i];
+      h[i] = acc & 0xffffffff;
+      acc >>= 32;
     }
 }
 
 static void
 mult256 (const uint32_t *a, const uint32_t *b, uint32_t *out)
 {
-  // Literal long multiplication
-  for (unsigned int i = 0; i < 16; ++i)
+  uint32_t cache[16][9];
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      cache[0][i] = 0x0;
+      cache[1][i] = a[i];
+      cache[2][i] = a[i];
+      cache[3][i] = a[i];
+      cache[4][i] = a[i];
+      cache[5][i] = a[i];
+      cache[6][i] = a[i];
+      cache[7][i] = a[i];
+      cache[8][i] = a[i];
+      cache[9][i] = a[i];
+      cache[10][i] = a[i];
+      cache[11][i] = a[i];
+      cache[12][i] = a[i];
+      cache[13][i] = a[i];
+      cache[14][i] = a[i];
+      cache[15][i] = a[i];
+      out[i] = 0x0;
+    }
+  cache[0][8] = 0x0;
+  cache[1][8] = 0x0;
+  cache[2][8] = 0x0;
+  cache[3][8] = 0x0;
+  cache[4][8] = 0x0;
+  cache[5][8] = 0x0;
+  cache[6][8] = 0x0;
+  cache[7][8] = 0x0;
+  cache[8][8] = 0x0;
+  cache[9][8] = 0x0;
+  cache[10][8] = 0x0;
+  cache[11][8] = 0x0;
+  cache[12][8] = 0x0;
+  cache[13][8] = 0x0;
+  cache[14][8] = 0x0;
+  cache[15][8] = 0x0;
+  for (unsigned int i = 8; i < 16; ++i)
     {
       out[i] = 0x0;
     }
-  for (unsigned int i = 0; i < 8; ++i)
+  for (unsigned int i = 1; i < 16; ++i)
     {
-      for (unsigned int j = 0; j < 8; ++j)
-        {
-          uint64_t prod = (uint64_t)a[i] * (uint64_t)b[j];
-          add_shifted (out, prod, i + j);
-        }
+      add288 (cache[i], cache[i - 1]);
+    }
+  for (unsigned int i = 0; i < 64; ++i)
+    {
+      uint8_t ind = (b[i / 8] >> (4 * (i % 8))) & 0xf;
+      add_shifted (out, cache[ind], 4 * i);
     }
 }
 
