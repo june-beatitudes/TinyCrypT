@@ -746,8 +746,8 @@ tct_ed25519_keygen (const uint8_t *privkey, uint8_t *pubkey)
   digest[0] &= 0b11111000;
   digest[31] &= 0b01111111;
   digest[31] |= 0b01000000;
-  uint32_t k[16];
-  for (unsigned int i = 0; i < 16; ++i)
+  uint32_t k[8];
+  for (unsigned int i = 0; i < 8; ++i)
     {
       k[i] = from_le32 (digest + 4 * i);
     }
@@ -806,13 +806,10 @@ tct_ed25519_sign (const uint8_t *msg, const uint64_t msg_len,
   inv256_modp (rBz, rBz);
   mult256_modp (rBz, rBx, rBx);
   mult256_modp (rBz, rBy, chunked);
-  for (unsigned int i = 0; i < 32; ++i) {
-    signature[i] = digest[i];
-  }
-  // for (unsigned int i = 0; i < 8; ++i)
-  //   {
-  //     to_le32 (chunked[i], signature + 4 * i);
-  //   }
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      to_le32 (chunked[i], signature + 4 * i);
+    }
   signature[31] &= 0b01111111;
   signature[31] |= (rBx[0] & 1) << 7;
   for (unsigned int i = 0; i < 32; ++i)
