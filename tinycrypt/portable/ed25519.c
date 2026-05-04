@@ -705,7 +705,7 @@ xB (const uint32_t *k, uint32_t *x, uint32_t *y, uint32_t *z, uint32_t *t)
   uint32_t ONE[8] = {
     0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
   };
-  for (unsigned int i = 0; i < 32; ++i)
+  for (unsigned int i = 0; i < 8; ++i)
     {
       x[i] = y[i] = z[i] = t[i] = 0x0;
     }
