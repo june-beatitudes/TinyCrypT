@@ -183,32 +183,31 @@ sub512 (uint64_t *h, const uint64_t *c)
     }
 }
 
+
+/* Fold the top 256 bits into the low 256 via 2^256 = 38 (mod 2^255-19).
+   Replaces a general 256x256 multiply by 2p with a multiply by the small
+   constant 38, leaving value = lo + 38*hi in acc[0..4]. */
 static void
-sub566 (uint64_t *h, const uint64_t *c)
+fold38 (uint64_t *acc)
 {
-  __uint128_t acc = 0;
-  for (unsigned int i = 0; i < 9; ++i)
+  uint64_t r[5];
+  __uint128_t carry = 0;
+  for (unsigned int i = 0; i < 4; ++i)
     {
-      acc += (__uint128_t)(0xffffffffffffffff - h[i]) + (__uint128_t)c[i];
-      h[i] = 0xffffffffffffffff - (acc & 0xffffffffffffffff);
-      acc >>= 64;
+      __uint128_t t = (__uint128_t)acc[4 + i] * 38 + carry;
+      r[i] = (uint64_t)t;
+      carry = t >> 64;
     }
-}
-
-static bool
-greater512_unsigned (const uint64_t *a, const uint64_t *b)
-{
-  uint64_t a_int[9], b_int[9];
-  for (unsigned int i = 0; i < 8; ++i)
+  r[4] = (uint64_t)carry;
+  __uint128_t c2 = 0;
+  for (unsigned int i = 0; i < 4; ++i)
     {
-      a_int[i] = a[i];
-      b_int[i] = b[i];
+      __uint128_t s = (__uint128_t)r[i] + acc[i] + c2;
+      acc[i] = (uint64_t)s;
+      c2 = s >> 64;
     }
-  a_int[8] = 0x0;
-  b_int[8] = 0x0;
-  sub566 (a_int, b_int);
-
-  return !(a_int[8] & (1ULL << 63));
+  acc[4] = (uint64_t)(r[4] + c2);
+  acc[5] = acc[6] = acc[7] = 0;
 }
 
 static void
@@ -237,7 +236,6 @@ modp512 (const uint64_t *in, uint64_t *out)
   uint64_t ZERO[8] = {
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
   };
-  uint64_t approx_dividend[8];
   uint64_t accumulator[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
@@ -245,11 +243,8 @@ modp512 (const uint64_t *in, uint64_t *out)
     }
   // Handle negatives properly
   add512 (accumulator, P);
-  for (unsigned int i = 0; i < 2; ++i)
-    {
-      mult256 (P2, accumulator + 4, approx_dividend);
-      sub512 (accumulator, approx_dividend);
-    }
+  fold38 (accumulator);
+  fold38 (accumulator);
   uint64_t *dummy = greater320 (accumulator, P2) ? P2 : ZERO;
   sub512 (accumulator, dummy);
   dummy = greater256 (accumulator, P) ? P : ZERO;
@@ -647,58 +642,165 @@ scalarmult (const uint64_t *k, const uint64_t *x_in, const uint64_t *y_in,
     }
 }
 
-static void
-shl512 (const uint64_t *in, const uint64_t shift, uint64_t *out)
+static uint64_t
+load_3 (const unsigned char *in)
 {
-  for (uint64_t i = 0; i < 8; ++i)
-    {
-      out[i] = 0x0;
-    }
-  uint64_t shift_amt = shift % 64;
-  for (uint64_t i = 0; i < 8 - shift / 64; ++i)
-    {
-      out[i + shift / 64] = in[i] << shift_amt;
-      if (i > 0 && shift_amt != 0)
-        {
-          out[i + shift / 64] |= in[i - 1] >> (64 - shift_amt);
-        }
-    }
+  return (uint64_t)in[0] | ((uint64_t)in[1] << 8) | ((uint64_t)in[2] << 16);
+}
+static uint64_t
+load_4 (const unsigned char *in)
+{
+  return (uint64_t)in[0] | ((uint64_t)in[1] << 8) | ((uint64_t)in[2] << 16)
+         | ((uint64_t)in[3] << 24);
+}
+
+/* Reduce a 512-bit little-endian value in s[0..64) modulo the group order L,
+   writing the 32-byte result to s[0..32). This is the ref10 (public domain)
+   sc_reduce: the 2^252 = -delta (mod L) fold expressed in signed 21-bit limbs.
+   NOTE: the signed left-shifts below are the canonical ref10 idiom; they are
+   well defined on two's-complement targets (x86-64 / aarch64). */
+static void
+sc_reduce (unsigned char *s)
+{
+  int64_t s0 = 2097151 & load_3 (s);
+  int64_t s1 = 2097151 & (load_4 (s + 2) >> 5);
+  int64_t s2 = 2097151 & (load_3 (s + 5) >> 2);
+  int64_t s3 = 2097151 & (load_4 (s + 7) >> 7);
+  int64_t s4 = 2097151 & (load_4 (s + 10) >> 4);
+  int64_t s5 = 2097151 & (load_3 (s + 13) >> 1);
+  int64_t s6 = 2097151 & (load_4 (s + 15) >> 6);
+  int64_t s7 = 2097151 & (load_3 (s + 18) >> 3);
+  int64_t s8 = 2097151 & load_3 (s + 21);
+  int64_t s9 = 2097151 & (load_4 (s + 23) >> 5);
+  int64_t s10 = 2097151 & (load_3 (s + 26) >> 2);
+  int64_t s11 = 2097151 & (load_4 (s + 28) >> 7);
+  int64_t s12 = 2097151 & (load_4 (s + 31) >> 4);
+  int64_t s13 = 2097151 & (load_3 (s + 34) >> 1);
+  int64_t s14 = 2097151 & (load_4 (s + 36) >> 6);
+  int64_t s15 = 2097151 & (load_3 (s + 39) >> 3);
+  int64_t s16 = 2097151 & load_3 (s + 42);
+  int64_t s17 = 2097151 & (load_4 (s + 44) >> 5);
+  int64_t s18 = 2097151 & (load_3 (s + 47) >> 2);
+  int64_t s19 = 2097151 & (load_4 (s + 49) >> 7);
+  int64_t s20 = 2097151 & (load_4 (s + 52) >> 4);
+  int64_t s21 = 2097151 & (load_3 (s + 55) >> 1);
+  int64_t s22 = 2097151 & (load_4 (s + 57) >> 6);
+  int64_t s23 = (load_4 (s + 60) >> 3);
+  int64_t carry0, carry1, carry2, carry3, carry4, carry5, carry6, carry7,
+      carry8, carry9, carry10, carry11, carry12, carry13, carry14, carry15,
+      carry16;
+
+  s11 += s23 * 666643; s12 += s23 * 470296; s13 += s23 * 654183;
+  s14 -= s23 * 997805; s15 += s23 * 136657; s16 -= s23 * 683901; s23 = 0;
+  s10 += s22 * 666643; s11 += s22 * 470296; s12 += s22 * 654183;
+  s13 -= s22 * 997805; s14 += s22 * 136657; s15 -= s22 * 683901; s22 = 0;
+  s9 += s21 * 666643; s10 += s21 * 470296; s11 += s21 * 654183;
+  s12 -= s21 * 997805; s13 += s21 * 136657; s14 -= s21 * 683901; s21 = 0;
+  s8 += s20 * 666643; s9 += s20 * 470296; s10 += s20 * 654183;
+  s11 -= s20 * 997805; s12 += s20 * 136657; s13 -= s20 * 683901; s20 = 0;
+  s7 += s19 * 666643; s8 += s19 * 470296; s9 += s19 * 654183;
+  s10 -= s19 * 997805; s11 += s19 * 136657; s12 -= s19 * 683901; s19 = 0;
+  s6 += s18 * 666643; s7 += s18 * 470296; s8 += s18 * 654183;
+  s9 -= s18 * 997805; s10 += s18 * 136657; s11 -= s18 * 683901; s18 = 0;
+
+  carry6 = (s6 + (1 << 20)) >> 21; s7 += carry6; s6 -= carry6 << 21;
+  carry8 = (s8 + (1 << 20)) >> 21; s9 += carry8; s8 -= carry8 << 21;
+  carry10 = (s10 + (1 << 20)) >> 21; s11 += carry10; s10 -= carry10 << 21;
+  carry12 = (s12 + (1 << 20)) >> 21; s13 += carry12; s12 -= carry12 << 21;
+  carry14 = (s14 + (1 << 20)) >> 21; s15 += carry14; s14 -= carry14 << 21;
+  carry16 = (s16 + (1 << 20)) >> 21; s17 += carry16; s16 -= carry16 << 21;
+  carry7 = (s7 + (1 << 20)) >> 21; s8 += carry7; s7 -= carry7 << 21;
+  carry9 = (s9 + (1 << 20)) >> 21; s10 += carry9; s9 -= carry9 << 21;
+  carry11 = (s11 + (1 << 20)) >> 21; s12 += carry11; s11 -= carry11 << 21;
+  carry13 = (s13 + (1 << 20)) >> 21; s14 += carry13; s13 -= carry13 << 21;
+  carry15 = (s15 + (1 << 20)) >> 21; s16 += carry15; s15 -= carry15 << 21;
+
+  s5 += s17 * 666643; s6 += s17 * 470296; s7 += s17 * 654183;
+  s8 -= s17 * 997805; s9 += s17 * 136657; s10 -= s17 * 683901; s17 = 0;
+  s4 += s16 * 666643; s5 += s16 * 470296; s6 += s16 * 654183;
+  s7 -= s16 * 997805; s8 += s16 * 136657; s9 -= s16 * 683901; s16 = 0;
+  s3 += s15 * 666643; s4 += s15 * 470296; s5 += s15 * 654183;
+  s6 -= s15 * 997805; s7 += s15 * 136657; s8 -= s15 * 683901; s15 = 0;
+  s2 += s14 * 666643; s3 += s14 * 470296; s4 += s14 * 654183;
+  s5 -= s14 * 997805; s6 += s14 * 136657; s7 -= s14 * 683901; s14 = 0;
+  s1 += s13 * 666643; s2 += s13 * 470296; s3 += s13 * 654183;
+  s4 -= s13 * 997805; s5 += s13 * 136657; s6 -= s13 * 683901; s13 = 0;
+  s0 += s12 * 666643; s1 += s12 * 470296; s2 += s12 * 654183;
+  s3 -= s12 * 997805; s4 += s12 * 136657; s5 -= s12 * 683901; s12 = 0;
+
+  carry0 = (s0 + (1 << 20)) >> 21; s1 += carry0; s0 -= carry0 << 21;
+  carry2 = (s2 + (1 << 20)) >> 21; s3 += carry2; s2 -= carry2 << 21;
+  carry4 = (s4 + (1 << 20)) >> 21; s5 += carry4; s4 -= carry4 << 21;
+  carry6 = (s6 + (1 << 20)) >> 21; s7 += carry6; s6 -= carry6 << 21;
+  carry8 = (s8 + (1 << 20)) >> 21; s9 += carry8; s8 -= carry8 << 21;
+  carry10 = (s10 + (1 << 20)) >> 21; s11 += carry10; s10 -= carry10 << 21;
+  carry1 = (s1 + (1 << 20)) >> 21; s2 += carry1; s1 -= carry1 << 21;
+  carry3 = (s3 + (1 << 20)) >> 21; s4 += carry3; s3 -= carry3 << 21;
+  carry5 = (s5 + (1 << 20)) >> 21; s6 += carry5; s5 -= carry5 << 21;
+  carry7 = (s7 + (1 << 20)) >> 21; s8 += carry7; s7 -= carry7 << 21;
+  carry9 = (s9 + (1 << 20)) >> 21; s10 += carry9; s9 -= carry9 << 21;
+  carry11 = (s11 + (1 << 20)) >> 21; s12 += carry11; s11 -= carry11 << 21;
+
+  s0 += s12 * 666643; s1 += s12 * 470296; s2 += s12 * 654183;
+  s3 -= s12 * 997805; s4 += s12 * 136657; s5 -= s12 * 683901; s12 = 0;
+
+  carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
+  carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;
+  carry2 = s2 >> 21; s3 += carry2; s2 -= carry2 << 21;
+  carry3 = s3 >> 21; s4 += carry3; s3 -= carry3 << 21;
+  carry4 = s4 >> 21; s5 += carry4; s4 -= carry4 << 21;
+  carry5 = s5 >> 21; s6 += carry5; s5 -= carry5 << 21;
+  carry6 = s6 >> 21; s7 += carry6; s6 -= carry6 << 21;
+  carry7 = s7 >> 21; s8 += carry7; s7 -= carry7 << 21;
+  carry8 = s8 >> 21; s9 += carry8; s8 -= carry8 << 21;
+  carry9 = s9 >> 21; s10 += carry9; s9 -= carry9 << 21;
+  carry10 = s10 >> 21; s11 += carry10; s10 -= carry10 << 21;
+  carry11 = s11 >> 21; s12 += carry11; s11 -= carry11 << 21;
+
+  s0 += s12 * 666643; s1 += s12 * 470296; s2 += s12 * 654183;
+  s3 -= s12 * 997805; s4 += s12 * 136657; s5 -= s12 * 683901; s12 = 0;
+
+  carry0 = s0 >> 21; s1 += carry0; s0 -= carry0 << 21;
+  carry1 = s1 >> 21; s2 += carry1; s1 -= carry1 << 21;
+  carry2 = s2 >> 21; s3 += carry2; s2 -= carry2 << 21;
+  carry3 = s3 >> 21; s4 += carry3; s3 -= carry3 << 21;
+  carry4 = s4 >> 21; s5 += carry4; s4 -= carry4 << 21;
+  carry5 = s5 >> 21; s6 += carry5; s5 -= carry5 << 21;
+  carry6 = s6 >> 21; s7 += carry6; s6 -= carry6 << 21;
+  carry7 = s7 >> 21; s8 += carry7; s7 -= carry7 << 21;
+  carry8 = s8 >> 21; s9 += carry8; s8 -= carry8 << 21;
+  carry9 = s9 >> 21; s10 += carry9; s9 -= carry9 << 21;
+  carry10 = s10 >> 21; s11 += carry10; s10 -= carry10 << 21;
+
+  s[0] = s0 >> 0; s[1] = s0 >> 8;
+  s[2] = (s0 >> 16) | (s1 << 5); s[3] = s1 >> 3; s[4] = s1 >> 11;
+  s[5] = (s1 >> 19) | (s2 << 2); s[6] = s2 >> 6; s[7] = (s2 >> 14) | (s3 << 7);
+  s[8] = s3 >> 1; s[9] = s3 >> 9; s[10] = (s3 >> 17) | (s4 << 4);
+  s[11] = s4 >> 4; s[12] = s4 >> 12; s[13] = (s4 >> 20) | (s5 << 1);
+  s[14] = s5 >> 7; s[15] = (s5 >> 15) | (s6 << 6); s[16] = s6 >> 2;
+  s[17] = s6 >> 10; s[18] = (s6 >> 18) | (s7 << 3); s[19] = s7 >> 5;
+  s[20] = s7 >> 13; s[21] = s8 >> 0; s[22] = s8 >> 8;
+  s[23] = (s8 >> 16) | (s9 << 5); s[24] = s9 >> 3; s[25] = s9 >> 11;
+  s[26] = (s9 >> 19) | (s10 << 2); s[27] = s10 >> 6;
+  s[28] = (s10 >> 14) | (s11 << 7); s[29] = s11 >> 1; s[30] = s11 >> 9;
+  s[31] = s11 >> 17;
 }
 
 static void
 modl512 (const uint64_t *x, uint64_t *out)
 {
-  uint64_t L[8] = {
-    0x5812631a5cf5d3ed,
-    0x14def9dea2f79cd6,
-    0x0000000000000000,
-    0x1000000000000000,
-    0x0,
-    0x0,
-    0x0,
-    0x0,
-  };
-  uint64_t LMULT[8];
-  uint64_t ZERO[8] = {
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-  };
-  uint64_t i0[8];
+  /* reduce the 512-bit little-endian value mod L via the sc_reduce fold,
+     through a byte serialization round-trip */
+  unsigned char s[64];
   for (unsigned int i = 0; i < 8; ++i)
-    {
-      i0[i] = x[i];
-    }
-  for (int i = 259; i >= 0; --i)
-    {
-      shl512 (L, i, LMULT);
-      uint64_t *dummy = greater512_unsigned (i0, LMULT) ? LMULT : ZERO;
-      sub512 (i0, dummy);
-      dummy = greater512_unsigned (i0, LMULT) ? LMULT : ZERO;
-      sub512 (i0, dummy);
-    }
-
+    for (unsigned int b = 0; b < 8; ++b)
+      s[i * 8 + b] = (x[i] >> (8 * b)) & 0xff;
+  sc_reduce (s);
   for (unsigned int i = 0; i < 4; ++i)
     {
-      out[i] = i0[i];
+      out[i] = 0;
+      for (unsigned int b = 0; b < 8; ++b)
+        out[i] |= (uint64_t)s[i * 8 + b] << (8 * b);
     }
 }
 

@@ -163,6 +163,32 @@ greater256 (const uint64_t *a, const uint64_t *b)
   return !(buf[3] >> 63);
 }
 
+/* Fold the top 256 bits into the low 256 via 2^256 = 38 (mod 2^255-19).
+   Replaces a general 256x256 multiply by 2p with a multiply by the small
+   constant 38, leaving value = lo + 38*hi in acc[0..4]. */
+static void
+fold38 (uint64_t *acc)
+{
+  uint64_t r[5];
+  __uint128_t carry = 0;
+  for (unsigned int i = 0; i < 4; ++i)
+    {
+      __uint128_t t = (__uint128_t)acc[4 + i] * 38 + carry;
+      r[i] = (uint64_t)t;
+      carry = t >> 64;
+    }
+  r[4] = (uint64_t)carry;
+  __uint128_t c2 = 0;
+  for (unsigned int i = 0; i < 4; ++i)
+    {
+      __uint128_t s = (__uint128_t)r[i] + acc[i] + c2;
+      acc[i] = (uint64_t)s;
+      c2 = s >> 64;
+    }
+  acc[4] = (uint64_t)(r[4] + c2);
+  acc[5] = acc[6] = acc[7] = 0;
+}
+
 static void
 modp512 (const uint64_t *in, uint64_t *out)
 {
@@ -189,7 +215,6 @@ modp512 (const uint64_t *in, uint64_t *out)
   uint64_t ZERO[8] = {
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
   };
-  uint64_t approx_dividend[8];
   uint64_t accumulator[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
@@ -197,11 +222,8 @@ modp512 (const uint64_t *in, uint64_t *out)
     }
   // Handle negatives properly
   add512 (accumulator, P);
-  for (unsigned int i = 0; i < 2; ++i)
-    {
-      mult256 (P2, accumulator + 4, approx_dividend);
-      sub512 (accumulator, approx_dividend);
-    }
+  fold38 (accumulator);
+  fold38 (accumulator);
   uint64_t *dummy = greater320 (accumulator, P2) ? P2 : ZERO;
   sub512 (accumulator, dummy);
   dummy = greater256 (accumulator, P) ? P : ZERO;

@@ -459,18 +459,6 @@ add256 (uint64_t *h, const uint64_t *c)
 }
 
 static void
-sub320 (uint64_t *h, const uint64_t *c)
-{
-  __uint128_t acc = 0;
-  for (unsigned int i = 0; i < 5; ++i)
-    {
-      acc += (__uint128_t)(0xffffffffffffffff - h[i]) + (__uint128_t)c[i];
-      h[i] = 0xffffffffffffffff - (acc & 0xffffffffffffffff);
-      acc >>= 64;
-    }
-}
-
-static void
 mult192 (const uint64_t *a, const uint64_t *b, uint64_t *out)
 {
   uint64_t a_int[3], b_int[3];
@@ -509,39 +497,57 @@ shr320_by_130 (const uint64_t *in, uint64_t *out)
   out[2] = in[4] >> 2;
 }
 
-static bool
-greater320 (const uint64_t *a, const uint64_t *b)
+/* Fold the bits above 130 into the low 130 via 2^130 = 5 (mod 2^130-5). */
+static void
+fold5 (uint64_t *acc)
 {
-  uint64_t a_int[5] = { a[0], a[1], a[2], a[3], a[4] };
-  sub320 (a_int, b);
-  return !(a_int[4] & (1ULL << 63));
+  uint64_t hi[3];
+  shr320_by_130 (acc, hi);
+  uint64_t lo0 = acc[0], lo1 = acc[1], lo2 = acc[2] & 0x3;
+  __uint128_t c = 0;
+  uint64_t m[4];
+  for (unsigned int i = 0; i < 3; ++i)
+    {
+      __uint128_t t = (__uint128_t)hi[i] * 5 + c;
+      m[i] = (uint64_t)t;
+      c = t >> 64;
+    }
+  m[3] = (uint64_t)c;
+  __uint128_t s = (__uint128_t)m[0] + lo0;
+  acc[0] = (uint64_t)s;
+  c = s >> 64;
+  s = (__uint128_t)m[1] + lo1 + c;
+  acc[1] = (uint64_t)s;
+  c = s >> 64;
+  s = (__uint128_t)m[2] + lo2 + c;
+  acc[2] = (uint64_t)s;
+  c = s >> 64;
+  s = (__uint128_t)m[3] + c;
+  acc[3] = (uint64_t)s;
+  acc[4] = (uint64_t)(s >> 64);
 }
 
 static void
 modp320 (uint64_t *in, uint64_t *out)
 {
-  const uint64_t P[5]
-      = { 0xfffffffffffffffb, 0xffffffffffffffff, 0x3, 0x0, 0x0 };
-  const uint64_t ZERO[5] = { 0x0, 0x0, 0x0, 0x0, 0x0 };
-  uint64_t approx_quotient[3];
-  uint64_t approx_dividend[6];
-  uint64_t accumulator[5];
-  for (unsigned int i = 0; i < 5; ++i)
-    {
-      accumulator[i] = in[i];
-    }
-  for (unsigned int i = 0; i < 2; ++i)
-    {
-      shr320_by_130 (accumulator, approx_quotient);
-      mult192 (P, approx_quotient, approx_dividend);
-      sub320 (accumulator, approx_dividend);
-    }
-  const uint64_t *dummy = greater320 (accumulator, P) ? P : ZERO;
-  sub320 (accumulator, dummy);
-  for (unsigned int i = 0; i < 4; ++i)
-    {
-      out[i] = accumulator[i];
-    }
+  uint64_t acc[5] = { in[0], in[1], in[2], in[3], in[4] };
+  fold5 (acc);
+  fold5 (acc); /* value now < 2^130 + 80 */
+  /* constant-time freeze: if value + 5 carries past bit 130, subtract p */
+  __uint128_t c = 5;
+  __uint128_t s = (__uint128_t)acc[0] + c;
+  uint64_t t0 = (uint64_t)s;
+  c = s >> 64;
+  s = (__uint128_t)acc[1] + c;
+  uint64_t t1 = (uint64_t)s;
+  c = s >> 64;
+  s = (__uint128_t)acc[2] + c;
+  uint64_t t2 = (uint64_t)s;
+  uint64_t mask = (uint64_t)0 - ((t2 >> 2) & 1);
+  out[0] = (t0 & mask) | (acc[0] & ~mask);
+  out[1] = (t1 & mask) | (acc[1] & ~mask);
+  out[2] = ((t2 & 0x3) & mask) | (acc[2] & ~mask);
+  out[3] = 0;
 }
 
 static void
