@@ -30,6 +30,10 @@ build_args = [
     '-ffreestanding',
 ]
 
+if target_machine.cpu_family() == 'x86_64'
+    build_args += '-march=native'
+endif
+
 target = static_library('tinycrypt', sources, c_args: build_args, include_directories: incdir)
 
 project_dep = declare_dependency(
