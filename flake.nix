@@ -31,6 +31,7 @@
           valgrind
           bear
           tokei
+          cbmc
         ];
       };
       teiresia_shl = pkgs.mkShell {
