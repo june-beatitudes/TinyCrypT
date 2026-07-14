@@ -180,7 +180,7 @@ tct_kangarootwelve128 (const uint8_t *input, const uint64_t input_len,
   uint8_t buf[168];
   uint8_t state[200];
   turboshake128_init (state);
-  uint8_t encoded[8];
+  uint8_t encoded[16];
   uint64_t encoded_len;
   length_encode (cs_len, encoded, &encoded_len);
   const uint64_t s_size = input_len + cs_len + encoded_len;
