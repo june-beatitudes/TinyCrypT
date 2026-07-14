@@ -300,7 +300,7 @@ tct_kangarootwelve128 (const uint8_t *input, const uint64_t input_len,
       num_block++;
       offset += block_size;
     }
-  uint8_t nb_encoded[8];
+  uint8_t nb_encoded[16];
   uint64_t nb_encoded_size;
   length_encode (num_block, nb_encoded, &nb_encoded_size);
   if (buf_len + nb_encoded_size + 2 >= 168)
