@@ -345,87 +345,25 @@ mult256_modp (const uint64_t *a, const uint64_t *b, uint64_t *out)
 }
 
 static void
-to_montgomery (const uint64_t *in, uint64_t *out)
-{
-  uint64_t buf[8];
-  for (unsigned int i = 0; i < 4; ++i)
-    {
-      buf[4 + i] = in[i];
-      buf[i] = 0x0;
-    }
-  modp512 (buf, out);
-}
-
-static void
-from_montgomery (const uint64_t *in, uint64_t *out)
-{
-  const uint64_t RECIPROCAL[4] = { 0x435e50d79435e50a, 0x5e50d79435e50d79,
-                                   0x50d79435e50d7943, 0x179435e50d79435e };
-  mult256_modp (RECIPROCAL, in, out);
-}
-
-static void
-montgomery_multiply (const uint64_t *a, const uint64_t *b, uint64_t *out)
-{
-  uint64_t P[4] = { 0xffffffffffffffed, 0xffffffffffffffff, 0xffffffffffffffff,
-                    0x7fffffffffffffff };
-  uint64_t FACTOR[4] = { 0x86bca1af286bca1b, 0xbca1af286bca1af2,
-                         0xa1af286bca1af286, 0x2f286bca1af286bc };
-  uint64_t ZERO[4] = { 0x0, 0x0, 0x0, 0x0 };
-  uint64_t prod[8];
-  mult256 (a, b, prod);
-  uint64_t i0[8], i1[8];
-  mult256 (prod, FACTOR, i0);
-  mult256 (i0, P, i1);
-  add512 (i1, prod);
-  uint64_t *dummy = greater256 (i1 + 4, P) ? P : ZERO;
-  sub256 (i1 + 4, dummy);
-  for (unsigned int i = 0; i < 4; ++i)
-    {
-      out[i] = i1[i + 4];
-    }
-}
-
-static void
-montgomery_square (const uint64_t *in, uint64_t *out)
-{
-  uint64_t P[4] = { 0xffffffffffffffed, 0xffffffffffffffff, 0xffffffffffffffff,
-                    0x7fffffffffffffff };
-  uint64_t FACTOR[4] = { 0x86bca1af286bca1b, 0xbca1af286bca1af2,
-                         0xa1af286bca1af286, 0x2f286bca1af286bc };
-  uint64_t ZERO[4] = { 0x0, 0x0, 0x0, 0x0 };
-  uint64_t prod[8];
-  square256 (in, prod);
-  uint64_t i0[8], i1[8];
-  mult256 (prod, FACTOR, i0);
-  mult256 (i0, P, i1);
-  add512 (i1, prod);
-  uint64_t *dummy = greater256 (i1 + 4, P) ? P : ZERO;
-  sub256 (i1 + 4, dummy);
-  for (unsigned int i = 0; i < 4; ++i)
-    {
-      out[i] = i1[i + 4];
-    }
-}
-
-static void
 inv256_modp (const uint64_t *x, uint64_t *out)
 {
   uint64_t i0[4], i1[4];
-  to_montgomery (x, i0);
   for (unsigned int i = 0; i < 4; ++i)
     {
-      i1[i] = i0[i];
+      i1[i] = i0[i] = out[i];
     }
   for (unsigned int i = 0; i < 254; ++i)
     {
-      montgomery_square (i0, i0);
+      square256_modp (i0, i0);
       if (i != 251 && i != 249)
         {
-          montgomery_multiply (i0, i1, i0);
+          mult256_modp (i0, i1, i0);
         }
     }
-  from_montgomery (i0, out);
+  for (unsigned int i = 0; i < 4; ++i)
+    {
+      out[i] = i0[i];
+    }
 }
 
 static void
