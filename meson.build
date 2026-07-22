@@ -1,6 +1,6 @@
 project('TinyCrypT', 'c', version: '0.1.0')
 
-incdir = include_directories('tinycrypt')
+incdir = include_directories('.')
 
 sources = [
     'tinycrypt/portable/kangarootwelve128.c',
