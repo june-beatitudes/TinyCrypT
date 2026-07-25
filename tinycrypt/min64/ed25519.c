@@ -894,7 +894,7 @@ addpoints_precompute (const uint64_t *x1, const uint64_t *y1,
 
 #ifndef TCT_LOWMEM
 
-#include "tinycrypt/x86_64_aarch64/ed25519_precompute.h"
+#include "tinycrypt/min64/ed25519_precompute.h"
 
 static void
 xB (const uint64_t *k, uint64_t *x, uint64_t *y, uint64_t *z, uint64_t *t)
