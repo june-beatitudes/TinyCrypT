@@ -3,22 +3,41 @@
 
 #include "tinycrypt/sha2.h"
 
+/*@ requires 1 <= c < 32;
+  @ terminates \true;
+  @ exits \false;
+  @ assigns \nothing;
+ */
 static uint32_t
-rotr_32 (uint32_t x, int c)
+rotr_32 (uint32_t x, uint8_t c)
 {
   return (x >> c) | (x << (32 - c));
 }
 
+/*@ requires 1 <= c < 64;
+  @ terminates \true;
+  @ exits \false;
+  @ assigns \nothing;
+ */
 static uint64_t
-rotr_64 (uint64_t x, int c)
+rotr_64 (uint64_t x, uint8_t c)
 {
   return (x >> c) | (x << (64 - c));
 }
 
+/*@ requires \valid_read(x + (0..3));
+  @ terminates \true;
+  @ exits \false;
+  @ assigns \nothing;
+ */
 static uint32_t
 from_be32 (const uint8_t *x)
 {
   uint32_t u = 0;
+  /*@ loop invariant 0 <= i <= 4;
+    @ loop assigns i, u;
+    @ loop variant 4 - i;
+   */
   for (unsigned int i = 0; i < 4; ++i)
     {
       u <<= 8;
@@ -27,9 +46,18 @@ from_be32 (const uint8_t *x)
   return u;
 }
 
+/*@ requires \valid(x + (0..3));
+  @ terminates \true;
+  @ exits \false;
+  @ assigns x[0..3];
+ */
 static void
 to_be32 (uint32_t u, uint8_t *x)
 {
+  /*@ loop invariant 0 <= i <= 4;
+    @ loop assigns x[0..3], u, i;
+    @ loop variant 4 - i;
+   */
   for (unsigned int i = 0; i < 4; ++i)
     {
       x[3 - i] = u & 0xFF;
@@ -37,10 +65,19 @@ to_be32 (uint32_t u, uint8_t *x)
     }
 }
 
+/*@ requires \valid_read(x + (0..7));
+  @ terminates \true;
+  @ exits \false;
+  @ assigns \nothing;
+ */
 static uint64_t
 from_be64 (const uint8_t *x)
 {
   uint64_t u = 0;
+  /*@ loop invariant 0 <= i <= 8;
+    @ loop assigns u, i;
+    @ loop variant 8 - i;
+   */
   for (unsigned int i = 0; i < 8; ++i)
     {
       u <<= 8;
@@ -49,9 +86,18 @@ from_be64 (const uint8_t *x)
   return u;
 }
 
+/*@ requires \valid(x + (0..7));
+  @ terminates \true;
+  @ exits \false;
+  @ assigns x[0..7];
+ */
 static void
 to_be64 (uint64_t u, uint8_t *x)
 {
+  /*@ loop invariant 0 <= i <= 8;
+    @ loop assigns i, u, x[0..7];
+    @ loop variant 8 - i;
+   */
   for (unsigned int i = 0; i < 8; ++i)
     {
       x[7 - i] = u & 0xFF;
@@ -59,7 +105,7 @@ to_be64 (uint64_t u, uint8_t *x)
     }
 }
 
-static uint32_t K256[64] = {
+static const uint32_t K256[64] = {
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
   0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
   0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
@@ -73,6 +119,14 @@ static uint32_t K256[64] = {
   0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 };
 
+/*@ requires \separated(data, hash_out);
+  @ requires \valid(data + (0..data_len-1));
+  @ requires \valid(hash_out + (0..31));
+  @ requires data_len <= 0xffffffffffffffff - 73;
+  @ terminates \true;
+  @ exits \false;
+  @ assigns hash_out[0..31];
+ */
 void
 tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
 {
@@ -82,15 +136,29 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
   };
+  /*@ loop invariant 0 <= i <= data_len + 73;
+    @ loop assigns chunk[0..63];
+    @ loop assigns i, w[0..63];
+    @ loop assigns hash_internal[0..7];
+    @ loop variant data_len + 73 - i;
+   */
   for (uint64_t i = 0; i < data_len + 9; i += 64)
     {
       // Handle possible negatives properly
       uint64_t chunk_size
           = (data_len + 9 - i < 64) ? ((data_len + 65 - i) % 64) : 64;
+      /*@ loop invariant 0 <= j <= 64;
+        @ loop assigns j, chunk[0..63];
+        @ loop variant 63 - j;
+       */
       for (unsigned int j = 0; j < 64; ++j)
         {
           chunk[j] = 0x0;
         }
+      /*@ loop invariant 0 <= j <= chunk_size;
+        @ loop assigns j, chunk[0..chunk_size-1];
+        @ loop variant chunk_size - j;
+       */
       for (unsigned int j = 0; j < chunk_size; ++j)
         {
           if (i + j < data_len)
@@ -106,10 +174,18 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
         {
           to_be64 (data_len * 8, chunk + 56);
         }
+      /*@ loop invariant 0 <= j <= 16;
+        @ loop assigns j, w[0..15];
+        @ loop variant 16 - j;
+       */
       for (unsigned int j = 0; j < 16; ++j)
         {
           w[j] = from_be32 (chunk + j * 4);
         }
+      /*@ loop invariant 16 <= j <= 64;
+        @ loop assigns j, w[16..63];
+        @ loop variant 64 - j;
+       */
       for (unsigned int j = 16; j < 64; ++j)
         {
           uint32_t s0 = rotr_32 (w[j - 15], 7) ^ rotr_32 (w[j - 15], 18)
@@ -122,6 +198,17 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
                c = hash_internal[2], d = hash_internal[3],
                e = hash_internal[4], f = hash_internal[5],
                g = hash_internal[6], k = hash_internal[7];
+      /*@ loop invariant 0 <= j <= 64;
+        @ loop assigns j, a;
+        @ loop assigns b;
+        @ loop assigns c;
+        @ loop assigns d;
+        @ loop assigns e;
+        @ loop assigns f;
+        @ loop assigns g;
+        @ loop assigns k;
+        @ loop variant 64 - j;
+       */
       for (unsigned int j = 0; j < 64; ++j)
         {
           uint32_t S1 = rotr_32 (e, 6) ^ rotr_32 (e, 11) ^ rotr_32 (e, 25);
@@ -148,13 +235,17 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
       hash_internal[6] += g;
       hash_internal[7] += k;
     }
+  /*@ loop invariant 0 <= i <= 8;
+    @ loop assigns i, hash_out[0..31];
+    @ loop variant 8 - i;
+   */
   for (unsigned int i = 0; i < 8; ++i)
     {
       to_be32 (hash_internal[i], hash_out + i * 4);
     }
 }
 
-static uint64_t K512[80] = {
+static const uint64_t K512[80] = {
   0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f,
   0xe9b5dba58189dbbc, 0x3956c25bf348b538, 0x59f111f1b605d019,
   0x923f82a4af194f9b, 0xab1c5ed5da6d8118, 0xd807aa98a3030242,
@@ -184,6 +275,14 @@ static uint64_t K512[80] = {
   0x5fcb6fab3ad6faec, 0x6c44198c4a475817,
 };
 
+/*@ requires \separated(data, hash_out);
+  @ requires \valid(data + (0..data_len-1));
+  @ requires \valid(hash_out + (0..63));
+  @ requires data_len <= 0xffffffffffffffff - 145;
+  @ terminates \true;
+  @ exits \false;
+  @ assigns hash_out[0..63];
+ */
 void
 tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
 {
@@ -194,15 +293,28 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
     0xa54ff53a5f1d36f1, 0x510e527fade682d1, 0x9b05688c2b3e6c1f,
     0x1f83d9abfb41bd6b, 0x5be0cd19137e2179,
   };
+  /*@ loop invariant 0 <= i <= data_len + 145;
+    @ loop assigns chunk[0..127], w[0..79], hash_internal[0..7], i;
+    @ loop variant data_len + 145 - i;
+   */
   for (uint64_t i = 0; i < data_len + 17; i += 128)
     {
       // Handle possible negatives properly
+      //@ assert i < data_len + 129;
       uint64_t chunk_size
           = (data_len + 17 - i < 128) ? ((data_len + 129 - i) % 128) : 128;
+      /*@ loop invariant 0 <= j <= 128;
+        @ loop assigns chunk[0..127], j;
+        @ loop variant 128 - j;
+       */
       for (unsigned int j = 0; j < 128; ++j)
         {
           chunk[j] = 0x0;
         }
+      /*@ loop invariant 0 <= j <= chunk_size;
+        @ loop assigns chunk[0..chunk_size-1], j;
+        @ loop variant chunk_size - j;
+       */
       for (unsigned int j = 0; j < chunk_size; ++j)
         {
           if (i + j < data_len)
@@ -218,10 +330,18 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
         {
           to_be64 (data_len * 8, chunk + 120);
         }
+      /*@ loop invariant 0 <= j <= 16;
+        @ loop assigns w[0..15], j;
+        @ loop variant 16 - j;
+       */
       for (unsigned int j = 0; j < 16; ++j)
         {
           w[j] = from_be64 (chunk + j * 8);
         }
+      /*@ loop invariant 16 <= j <= 80;
+        @ loop assigns w[16..79], j;
+        @ loop variant 80 - j;
+       */
       for (unsigned int j = 16; j < 80; ++j)
         {
           uint64_t s0 = rotr_64 (w[j - 15], 1) ^ rotr_64 (w[j - 15], 8)
@@ -234,6 +354,10 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
                c = hash_internal[2], d = hash_internal[3],
                e = hash_internal[4], f = hash_internal[5],
                g = hash_internal[6], k = hash_internal[7];
+      /*@ loop invariant 0 <= j <= 80;
+        @ loop assigns a, b, c, d, e, f, g, k, j;
+        @ loop variant 80 - j;
+       */
       for (unsigned int j = 0; j < 80; ++j)
         {
           uint64_t S1 = rotr_64 (e, 14) ^ rotr_64 (e, 18) ^ rotr_64 (e, 41);
@@ -260,6 +384,10 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
       hash_internal[6] += g;
       hash_internal[7] += k;
     }
+  /*@ loop invariant 0 <= i <= 8;
+    @ loop assigns hash_out[0..63], i;
+    @ loop variant 8 - i;
+   */
   for (unsigned int i = 0; i < 8; ++i)
     {
       to_be64 (hash_internal[i], hash_out + i * 8);

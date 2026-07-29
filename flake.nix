@@ -21,12 +21,13 @@
           meson
           gcc
           clang-tools
-          valgrind
           bear
           tokei
-          cbmc
+          frama-c
+          z3
+          why3
+          valgrind-light
           zig_0_16
-          jq
         ];
       };
     in
