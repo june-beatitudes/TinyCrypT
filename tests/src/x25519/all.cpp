@@ -5,6 +5,7 @@ extern "C"
 #include "gtest/gtest.h"
 #include <cstdint>
 #include <cstring>
+#include <valgrind/memcheck.h>
 
 TEST (X25519, x25519_scalarmult_0)
 {
@@ -21,7 +22,9 @@ TEST (X25519, x25519_scalarmult_0)
           0x4d, 0xf2, 0x8d, 0x08, 0x4f, 0x32, 0xec, 0xcf, 0x03, 0x49, 0x1c,
           0x71, 0xf7, 0x54, 0xb4, 0x07, 0x55, 0x77, 0xa2, 0x85, 0x52 };
   uint8_t actual[sizeof (EXPECTED)];
+  VALGRIND_MAKE_MEM_UNDEFINED(SCALAR, sizeof(SCALAR));
   tct_x25519 (SCALAR, U, actual);
+  VALGRIND_MAKE_MEM_DEFINED(SCALAR, sizeof(SCALAR));
   EXPECT_EQ (memcmp (actual, EXPECTED, sizeof (EXPECTED)), 0);
 }
 
