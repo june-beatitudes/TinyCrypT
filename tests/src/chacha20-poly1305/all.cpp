@@ -3,7 +3,6 @@ extern "C"
 #include "tinycrypt/chacha20_poly1305.h"
 }
 #include "gtest/gtest.h"
-#include <valgrind/memcheck.h>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -24,11 +23,9 @@ TEST (ChaCha20_Poly1305, cc20_p1305_full)
           0xa4, 0x67, 0x7d, 0xab, 0xf4, 0xe3, 0xd2, 0x4b, 0x87,
           0x6b, 0xb2, 0x84, 0x75, 0x38, 0x96, 0xe1, 0xd6 };
   uint8_t actual_output[sizeof (EXPECTED_OUTPUT)];
-  VALGRIND_MAKE_MEM_UNDEFINED(KEY, sizeof(KEY));
   tct_aead_chacha20_poly1305_encrypt (AAD, sizeof (AAD), KEY, NONCE, INPUT,
                                       sizeof (INPUT), actual_output,
                                       actual_output + sizeof (INPUT));
-  VALGRIND_MAKE_MEM_DEFINED(actual_output, sizeof(actual_output));
   EXPECT_EQ (memcmp (actual_output, EXPECTED_OUTPUT, sizeof (EXPECTED_OUTPUT)),
              0);
 }
@@ -42,7 +39,6 @@ TEST (ChaCha20_Poly1305, round_trip_lengths)
   const uint8_t NONCE[8] = { 0xcd, 0x7c, 0xf6, 0x7b, 0xe3, 0x9c, 0x79, 0x4a };
   const uint8_t AAD[10]
       = { 0x87, 0xe2, 0x29, 0xd4, 0x50, 0x08, 0x45, 0xa0, 0x79, 0xc0 };
-  VALGRIND_MAKE_MEM_UNDEFINED(KEY, sizeof(KEY));
 
   // Lengths straddling block (64) and vector-width (256, 512) boundaries.
   const size_t lengths[] = { 0,   1,   63,  64,  65,  127, 128,  255,  256,

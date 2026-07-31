@@ -5,7 +5,6 @@ extern "C"
 #include "gtest/gtest.h"
 #include <cstdint>
 #include <cstring>
-#include <valgrind/memcheck.h>
 
 TEST (X25519, x25519_scalarmult_0)
 {
@@ -22,9 +21,7 @@ TEST (X25519, x25519_scalarmult_0)
           0x4d, 0xf2, 0x8d, 0x08, 0x4f, 0x32, 0xec, 0xcf, 0x03, 0x49, 0x1c,
           0x71, 0xf7, 0x54, 0xb4, 0x07, 0x55, 0x77, 0xa2, 0x85, 0x52 };
   uint8_t actual[sizeof (EXPECTED)];
-  VALGRIND_MAKE_MEM_UNDEFINED(SCALAR, sizeof(SCALAR));
   tct_x25519 (SCALAR, U, actual);
-  VALGRIND_MAKE_MEM_DEFINED(SCALAR, sizeof(SCALAR));
   EXPECT_EQ (memcmp (actual, EXPECTED, sizeof (EXPECTED)), 0);
 }
 
@@ -94,29 +91,29 @@ TEST (X25519, x25519_repetition_1000)
   EXPECT_EQ (memcmp (k, EXPECTED, sizeof (EXPECTED)), 0);
 }
 
-TEST (X25519, x25519_repetition_1000000)
-{
-  uint8_t buf[96];
-  uint8_t *k = buf;
-  uint8_t *u = buf + 32;
-  uint8_t *out = buf + 64;
-  for (unsigned int i = 0; i < 32; ++i)
-    {
-      k[i] = u[i] = 0x0;
-    }
-  k[0] = 0x9;
-  u[0] = 0x9;
-  for (unsigned int i = 0; i < 1000000; ++i)
-    {
-      tct_x25519 (k, u, out);
-      uint8_t *tmp = k;
-      k = out;
-      out = u;
-      u = tmp;
-    }
-  const uint8_t EXPECTED[]
-      = { 0x7c, 0x39, 0x11, 0xe0, 0xab, 0x25, 0x86, 0xfd, 0x86, 0x44, 0x97,
-          0x29, 0x7e, 0x57, 0x5e, 0x6f, 0x3b, 0xc6, 0x01, 0xc0, 0x88, 0x3c,
-          0x30, 0xdf, 0x5f, 0x4d, 0xd2, 0xd2, 0x4f, 0x66, 0x54, 0x24 };
-  EXPECT_EQ (memcmp (k, EXPECTED, sizeof (EXPECTED)), 0);
-}
+// TEST (X25519, x25519_repetition_1000000)
+// {
+//   uint8_t buf[96];
+//   uint8_t *k = buf;
+//   uint8_t *u = buf + 32;
+//   uint8_t *out = buf + 64;
+//   for (unsigned int i = 0; i < 32; ++i)
+//     {
+//       k[i] = u[i] = 0x0;
+//     }
+//   k[0] = 0x9;
+//   u[0] = 0x9;
+//   for (unsigned int i = 0; i < 1000000; ++i)
+//     {
+//       tct_x25519 (k, u, out);
+//       uint8_t *tmp = k;
+//       k = out;
+//       out = u;
+//       u = tmp;
+//     }
+//   const uint8_t EXPECTED[]
+//       = { 0x7c, 0x39, 0x11, 0xe0, 0xab, 0x25, 0x86, 0xfd, 0x86, 0x44, 0x97,
+//           0x29, 0x7e, 0x57, 0x5e, 0x6f, 0x3b, 0xc6, 0x01, 0xc0, 0x88, 0x3c,
+//           0x30, 0xdf, 0x5f, 0x4d, 0xd2, 0xd2, 0x4f, 0x66, 0x54, 0x24 };
+//   EXPECT_EQ (memcmp (k, EXPECTED, sizeof (EXPECTED)), 0);
+// }

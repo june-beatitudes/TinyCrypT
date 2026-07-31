@@ -60,7 +60,7 @@
         packages = with pkgs; [
           ninja
           meson
-          gcc
+          just
           clang-tools
           bear
           tokei

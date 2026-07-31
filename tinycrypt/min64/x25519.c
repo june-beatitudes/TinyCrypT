@@ -212,9 +212,6 @@ modp512 (const uint64_t *in, uint64_t *out)
     0x0,
     0x0,
   };
-  uint64_t ZERO[8] = {
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-  };
   uint64_t accumulator[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
@@ -224,9 +221,18 @@ modp512 (const uint64_t *in, uint64_t *out)
   add512 (accumulator, P);
   fold38 (accumulator);
   fold38 (accumulator);
-  uint64_t *dummy = greater320 (accumulator, P2) ? P2 : ZERO;
+  uint64_t dummy[8];
+  uint64_t mask = greater320 (accumulator, P2) * 0xffffffffffffffff;
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      dummy[i] = P2[i] & mask;
+    }
   sub512 (accumulator, dummy);
-  dummy = greater256 (accumulator, P) ? P : ZERO;
+  mask = greater256 (accumulator, P) * 0xffffffffffffffff;
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      dummy[i] = P[i] & mask;
+    }
   sub256 (accumulator, dummy);
   for (unsigned int i = 0; i < 4; ++i)
     {
@@ -247,10 +253,12 @@ modp512_postsub (const uint64_t *in, uint64_t *out)
     0x0,
     0x0,
   };
-  uint64_t ZERO[8] = {
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-  };
-  uint64_t *dummy = (in[7] & (1ULL << 63)) ? P : ZERO;
+  uint64_t dummy[8];
+  uint64_t mask = ((in[7] & (1ULL << 63)) >> 63) * 0xffffffffffffffff;
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      dummy[i] = P[i] & mask;
+    }
   uint64_t i0[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
@@ -276,10 +284,12 @@ modp512_postadd (const uint64_t *in, uint64_t *out)
     0x0,
     0x0,
   };
-  uint64_t ZERO[8] = {
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-  };
-  uint64_t *dummy = greater320 (in, P) ? P : ZERO;
+  uint64_t dummy[8];
+  uint64_t mask = greater320 (in, P) * 0xffffffffffffffff;
+  for (unsigned int i = 0; i < 8; ++i)
+    {
+      dummy[i] = P[i] & mask;
+    }
   uint64_t i0[8];
   for (unsigned int i = 0; i < 8; ++i)
     {
@@ -371,7 +381,7 @@ swap256 (unsigned int do_swap, uint64_t *a, uint64_t *b)
 {
   for (unsigned int i = 0; i < 4; ++i)
     {
-      uint64_t dummy = (a[i] ^ b[i]) & ((do_swap) ? 0xffffffffffffffff : 0x0);
+      uint64_t dummy = (a[i] ^ b[i]) & (do_swap * 0xffffffffffffffff);
       a[i] = a[i] ^ dummy;
       b[i] = b[i] ^ dummy;
     }

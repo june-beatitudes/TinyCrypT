@@ -29,12 +29,17 @@ endif
 build_args = [
   '-O3',
   '-ffreestanding',
+  '-fno-sanitize=all',
 ]
 
 if target_machine.cpu_family() == 'x86_64'
-  build_args += '-march=native'
+  if get_option('avx2')
+    build_args += '-mavx2'
+    build_args += '-DTCT_SIMD256'
+  else
+    build_args += '-mno-avx2'
+  endif
   build_args += '-DTCT_SIMD128'
-  build_args += '-DTCT_SIMD256'
 endif
 
 if target_machine.cpu_family() == 'aarch64'
@@ -73,9 +78,10 @@ cc20_p1305_test_sources = [
 
 x25519_test_sources = [
   'tests/src/x25519/all.cpp',
+  'tests/src/x25519/wycheproof.cpp',
 ]
 
-if not meson.is_subproject() and not meson.is_cross_build()
+if not meson.is_subproject() and meson.can_run_host_binaries()
   add_languages('cpp')
   subdir('tests')
   test(
