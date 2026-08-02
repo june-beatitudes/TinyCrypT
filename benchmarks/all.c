@@ -1,4 +1,5 @@
 #include "tinycrypt/chacha20_poly1305.h"
+#include "tinycrypt/ed25519.h"
 #include "tinycrypt/sha2.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -8,6 +9,7 @@
 #define SHA256_ITERS (1024 * 64)
 #define SHA512_ITERS (1024 * 64)
 #define CHACHA20_ITERS (1024 * 64)
+#define EDDSA_ITERS (1024 * 64)
 
 static inline void
 timespec_diff (const struct timespec *a, const struct timespec *b,
@@ -43,7 +45,7 @@ main (int argc, const char **argv)
   clock_gettime (CLOCK_REALTIME, &b);
   struct timespec diff;
   timespec_diff (&b, &a, &diff);
-  printf ("Took %lld.%09ld seconds to compute %u 16KiB SHA-256 hashes\n",
+  printf ("Took %ld.%09ld seconds to compute %u 16KiB SHA-256 hashes\n",
           diff.tv_sec, diff.tv_nsec, SHA256_ITERS);
 
   uint8_t sha512[64];
@@ -54,7 +56,7 @@ main (int argc, const char **argv)
     }
   clock_gettime (CLOCK_REALTIME, &b);
   timespec_diff (&b, &a, &diff);
-  printf ("Took %lld.%09ld seconds to compute %u 16KiB SHA-512 hashes\n",
+  printf ("Took %ld.%09ld seconds to compute %u 16KiB SHA-512 hashes\n",
           diff.tv_sec, diff.tv_nsec, SHA512_ITERS);
 
   const uint8_t CC20_KEY[32]
@@ -81,9 +83,29 @@ main (int argc, const char **argv)
     }
   clock_gettime (CLOCK_REALTIME, &b);
   timespec_diff (&b, &a, &diff);
-  printf (
-      "Took %lld.%09ld seconds to compute %u 16KiB ChaCha20 round-trips\n",
-      diff.tv_sec, diff.tv_nsec, CHACHA20_ITERS);
+  printf ("Took %ld.%09ld seconds to compute %u 16KiB ChaCha20 round-trips\n",
+          diff.tv_sec, diff.tv_nsec, CHACHA20_ITERS);
+
+  clock_gettime (CLOCK_REALTIME, &a);
+  uint8_t signature[64];
+  uint8_t working_buf[16 * 1024 + 64];
+  static const uint8_t ED25519_PRIVKEY[]
+      = { 0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a,
+          0xf4, 0x92, 0xec, 0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32,
+          0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae, 0x7f, 0x60 };
+  static const uint8_t ED25519_PUBKEY[]
+      = { 0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe,
+          0xd3, 0xc9, 0x64, 0x07, 0x3a, 0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6,
+          0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a };
+  for (uint64_t i = 0; i < EDDSA_ITERS; ++i)
+    {
+      tct_ed25519_sign (buf, sizeof (buf), ED25519_PRIVKEY, ED25519_PUBKEY,
+                        working_buf, signature);
+    }
+  clock_gettime (CLOCK_REALTIME, &b);
+  timespec_diff (&b, &a, &diff);
+  printf ("Took %ld.%09ld seconds to compute %u 16KiB Ed25519 signatures\n",
+          diff.tv_sec, diff.tv_nsec, EDDSA_ITERS);
 
   return 0;
 }
