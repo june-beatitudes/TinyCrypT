@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define TCT_ED25519_PRIVKEY_LEN 32
+#define TCT_ED25519_PUBKEY_LEN 32
+#define TCT_ED25519_SIGNATURE_LEN 64
+
 /// Generates an Ed25519 public key based on a corresponding private key, as
 /// described in RFC 8032.
 void tct_ed25519_keygen (const uint8_t *privkey, uint8_t *pubkey);

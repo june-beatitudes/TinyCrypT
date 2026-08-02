@@ -21,9 +21,9 @@ Collection of classical cryptographic primitives written in portable C90 (with o
 
 ## Proof Validations
 
-- The KangarooTwelve128 and TurboSHAKE128 implementations can be proven to be memory-sound using Frama-C with the WP plugin (provided one follows the contract outlined in the header).
+- The SHA-2 implementations can be proven to be memory-sound using Frama-C with the WP plugin (provided one follows the contract outlined in the header).
 - The 64-bit Curve25519 implementation can be proven to be constant time and avoid cache timing side channels when compiled for x86-64 (with or without AVX2) using BINSEC/SSE (note that the 32-bit implementation is **not yet constant time**).
-- The 64-bit and 32-bit SHA-2 implementations can be proven to be constant time (except in the length of the input data, of course) and avoid cache timing side channels for input lengths up to 3KiB when compiled for x86-64 (with or without AVX2) or ARM Cortex-A, again using BINSEC/SSE (proving this for other builds is in progress, the proof takes a long time).
+- The 64-bit and 32-bit SHA-256 implementations can be proven to be constant time (except in the length of the input data, of course) and avoid cache timing side channels for input lengths up to 4KiB when compiled for x86-64 (with or without AVX2) or ARM Cortex-A, again using BINSEC/SSE (proving this for other builds and longer inputs is in progress, the proof takes a long time).
 
 ## Benchmarking
 

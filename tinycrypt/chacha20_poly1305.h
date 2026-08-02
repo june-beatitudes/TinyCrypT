@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define TCT_POLY1305_MAC_LEN 16
+#define TCT_CC20_P1305_KEY_LEN 32
+#define TCT_CC20_P1305_NONCE_LEN 12
+
 /// Implements the AEAD-ChaCha20-Poly1305 encryption and MAC algorithm defined
 /// in RFC 8439
 void tct_aead_chacha20_poly1305_encrypt (
