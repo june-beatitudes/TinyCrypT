@@ -1,6 +1,6 @@
 # TinyCrypT
 
-#[Drawing of Penelope, After Attic Red Figure](https://upload.wikimedia.org/wikipedia/commons/0/03/Adolphe_Yvon_Penelope_%28cropped_to_image%29.jpg)
+![Drawing of Penelope, After Attic Red Figure](https://upload.wikimedia.org/wikipedia/commons/0/03/Adolphe_Yvon_Penelope_%28cropped_to_image%29.jpg)
 
 Collection of classical cryptographic primitives written in portable C90 (with optional GNU extensions also supported by Clang) with no dependencies (including the standard library), optimized for correctness, soundness, portability, and speed in that order.
 
