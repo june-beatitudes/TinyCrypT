@@ -5,7 +5,6 @@ incdir = include_directories('.')
 sources = [
   'tinycrypt/portable/kangarootwelve128.c',
   'tinycrypt/portable/sha2.c',
-  'tinycrypt/portable/chacha20.c',
 ]
 
 if meson.get_compiler('c').has_define('__SIZEOF_INT128__')
@@ -32,19 +31,26 @@ build_args = [
   '-fno-sanitize=all',
 ]
 
-if target_machine.cpu_family() == 'x86_64'
-  if get_option('avx2')
-    build_args += '-mavx2'
-    build_args += '-DTCT_SIMD256'
-  else
-    build_args += '-mno-avx2'
-  endif
+if get_option('simd') == '256-bit'
+  build_args += '-DTCT_SIMD128'
+  build_args += '-DTCT_SIMD256'
+elif get_option('simd') == '128-bit'
   build_args += '-DTCT_SIMD128'
 endif
 
-if target_machine.cpu_family() == 'aarch64'
-  build_args += '-DTCT_SIMD128'
-  build_args += '-DTCT_SIMD256'
+if get_option('simd') == 'none'
+  sources += 'tinycrypt/portable/chacha20-scalar.c'
+else
+  sources += 'tinycrypt/portable/chacha20-simd.c'
+  build_args += '-DTCT_SIMD'
+endif
+
+if target_machine.cpu_family() == 'x86_64'
+  if get_option('simd') == '256-bit'
+    build_args += '-mavx2'
+  else
+    build_args += '-mno-avx2'
+  endif
 endif
 
 if target_machine.endian() == 'little'

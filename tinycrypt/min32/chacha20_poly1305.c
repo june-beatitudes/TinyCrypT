@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "tinycrypt/chacha20_poly1305.h"
@@ -11,18 +12,6 @@ to_le64 (uint64_t u, uint8_t *x)
       x[i] = u & 0xff;
       u >>= 8;
     }
-}
-
-static uint64_t
-from_le64 (const uint8_t *x)
-{
-  uint64_t u = 0;
-  for (unsigned int i = 0; i < 8; ++i)
-    {
-      u <<= 8;
-      u |= x[7 - i];
-    }
-  return u;
 }
 
 static void
@@ -266,37 +255,39 @@ tct_aead_chacha20_poly1305_decrypt_and_verify (
   uint32_t mac_chunked[8];
   poly1305_mac_init (mac_chunked);
   uint8_t buf[16];
-  uint64_t total_len = 16 + aad_len + ciphertext_len;
-  uint8_t aad_len_le[8], ciphertext_len_le[8];
+  uint8_t aad_len_le[8], plaintext_len_le[8];
   to_le64 (aad_len, aad_len_le);
-  to_le64 (ciphertext_len, ciphertext_len_le);
-  for (unsigned int i = 0; i < total_len; ++i)
+  to_le64 (ciphertext_len, plaintext_len_le);
+  for (uint32_t i = 0; i < aad_len; i += 16)
     {
-      if (i < aad_len)
+      for (size_t j = 0; j < aad_len - i && j < 16; ++j)
         {
-          buf[i % 16] = aad[i];
+          buf[j] = aad[i + j];
         }
-      else if (i < aad_len + 8)
+      for (size_t j = aad_len - i; j < 16; ++j)
         {
-          buf[i % 16] = aad_len_le[i - aad_len];
+          buf[j] = 0x00;
         }
-      else if (i < aad_len + 8 + ciphertext_len)
-        {
-          buf[i % 16] = frame[i - aad_len - 8];
-        }
-      else if (i < aad_len + 16 + ciphertext_len)
-        {
-          buf[i % 16] = ciphertext_len_le[i - aad_len - 8 - ciphertext_len];
-        }
-      if (i % 16 == 15)
-        {
-          poly1305_mac_rolling (buf, otk, 16, mac_chunked);
-        }
+      poly1305_mac_rolling (buf, otk, 16, mac_chunked);
     }
-  if (total_len % 16 != 0)
+  for (uint32_t i = 0; i < ciphertext_len; i += 16)
     {
-      poly1305_mac_rolling (buf, otk, total_len % 16, mac_chunked);
+      for (size_t j = 0; j < ciphertext_len - i && j < 16; ++j)
+        {
+          buf[j] = frame[i + j];
+        }
+      for (size_t j = ciphertext_len - i; j < 16; ++j)
+        {
+          buf[j] = 0x00;
+        }
+      poly1305_mac_rolling (buf, otk, 16, mac_chunked);
     }
+  for (size_t i = 0; i < 8; ++i)
+    {
+      buf[i] = aad_len_le[i];
+      buf[i + 8] = plaintext_len_le[i];
+    }
+  poly1305_mac_rolling (buf, otk, 16, mac_chunked);
   poly1305_mac_finish (mac_chunked, otk);
   uint32_t acc = 0x0;
   for (unsigned int i = 0; i < 4; ++i)
@@ -332,37 +323,39 @@ tct_aead_chacha20_poly1305_encrypt (const uint8_t *aad, const uint64_t aad_len,
   uint32_t mac_chunked[8];
   poly1305_mac_init (mac_chunked);
   uint8_t buf[16];
-  uint64_t total_len = 16 + aad_len + plaintext_len;
   uint8_t aad_len_le[8], plaintext_len_le[8];
   to_le64 (aad_len, aad_len_le);
   to_le64 (plaintext_len, plaintext_len_le);
-  for (unsigned int i = 0; i < total_len; ++i)
+  for (uint64_t i = 0; i < aad_len; i += 16)
     {
-      if (i < aad_len)
+      for (size_t j = 0; j < aad_len - i && j < 16; ++j)
         {
-          buf[i % 16] = aad[i];
+          buf[j] = aad[i + j];
         }
-      else if (i < aad_len + 8)
+      for (size_t j = aad_len - i; j < 16; ++j)
         {
-          buf[i % 16] = aad_len_le[i - aad_len];
+          buf[j] = 0x00;
         }
-      else if (i < aad_len + 8 + plaintext_len)
-        {
-          buf[i % 16] = cipher_out[i - aad_len - 8];
-        }
-      else if (i < aad_len + 16 + plaintext_len)
-        {
-          buf[i % 16] = plaintext_len_le[i - aad_len - 8 - plaintext_len];
-        }
-      if (i % 16 == 15)
-        {
-          poly1305_mac_rolling (buf, otk, 16, mac_chunked);
-        }
+      poly1305_mac_rolling (buf, otk, 16, mac_chunked);
     }
-  if (total_len % 16 != 0)
+  for (uint64_t i = 0; i < plaintext_len; i += 16)
     {
-      poly1305_mac_rolling (buf, otk, total_len % 16, mac_chunked);
+      for (size_t j = 0; j < plaintext_len - i && j < 16; ++j)
+        {
+          buf[j] = cipher_out[i + j];
+        }
+      for (size_t j = plaintext_len - i; j < 16; ++j)
+        {
+          buf[j] = 0x00;
+        }
+      poly1305_mac_rolling (buf, otk, 16, mac_chunked);
     }
+  for (size_t i = 0; i < 8; ++i)
+    {
+      buf[i] = aad_len_le[i];
+      buf[i + 8] = plaintext_len_le[i];
+    }
+  poly1305_mac_rolling (buf, otk, 16, mac_chunked);
   poly1305_mac_finish (mac_chunked, otk);
   for (unsigned int i = 0; i < 4; ++i)
     {

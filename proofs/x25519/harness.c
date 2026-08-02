@@ -1,6 +1,7 @@
 #include "tinycrypt/x25519.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 uint8_t key[32];
 const uint8_t BASE_POINT[32]
@@ -13,5 +14,5 @@ int
 main (int argc, const char **argv)
 {
   tct_x25519 (key, BASE_POINT, share);
-  return 0;
+  exit(share[0]);
 }

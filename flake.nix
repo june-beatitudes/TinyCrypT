@@ -70,6 +70,7 @@
           zig_0_16
           bitwuzla
           ocamlPackages.findlib
+          (python314.withPackages (ps: with ps; [lief]))
         ] ++ [binsec];
       };
     in

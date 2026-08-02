@@ -20,8 +20,8 @@ bool tct_aead_chacha20_poly1305_decrypt_and_verify (
 /// Encrypts or decrypts a ChaCha20-encrypted stream (it's symmetric, so
 /// they're the same essential operation)
 void tct_chacha20_encrypt_or_decrypt (const uint8_t *key,
-                                      const uint64_t counter,
+                                      const uint32_t counter,
                                       const uint8_t *nonce, const uint8_t *in,
-                                      const uint32_t in_len, uint8_t *out);
+                                      const uint64_t in_len, uint8_t *out);
 
 #endif

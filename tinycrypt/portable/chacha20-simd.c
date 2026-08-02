@@ -1,3 +1,7 @@
+#ifndef TCT_SIMD
+#error "You're building the wrong version of ChaCha20! LLVM emulates SIMD poorly on non-SIMD architectures. Use chacha20-scalar.c."
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -85,13 +89,10 @@ splat (uint32_t v)
   return (dwpacked){ v, v, v, v };
 }
 
-/* Counter/nonce row in the DJB / OpenSSH layout: a 64-bit block counter in
-   words 12/13 (little-endian) and a 64-bit nonce in words 14/15. This matches
-   standard ChaCha20 as used by chacha20-poly1305@openssh.com. */
 static dwpacked
-cc20_counter_row (uint64_t counter, uint32_t n0, uint32_t n1)
+cc20_counter_row (uint32_t counter, uint32_t n0, uint32_t n1, uint32_t n2)
 {
-  return (dwpacked){ (uint32_t)counter, (uint32_t)(counter >> 32), n0, n1 };
+  return (dwpacked){ counter, n0, n1, n2 };
 }
 
 /* One ChaCha20 block; keystream returned in four vectors (row layout). */
@@ -138,15 +139,16 @@ cc20_xor64 (const uint8_t *in, const dwpacked ks[4], uint8_t *out)
       dwpacked p;
       __builtin_memcpy (&p, in + 16 * k, 16);
       bytes16 be = (bytes16)p;
-      be = __builtin_shufflevector(be, be, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12);
-      be ^= ks[k];
-      be = __builtin_shufflevector(be, be, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12);
+      be = __builtin_shufflevector (be, be, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9,
+                                    8, 15, 14, 13, 12);
+      be ^= (bytes16)ks[k];
+      be = __builtin_shufflevector (be, be, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9,
+                                    8, 15, 14, 13, 12);
       __builtin_memcpy (out + 16 * k, &be, 16);
     }
 }
 #endif
 
-/* Transpose a 4x4 word matrix held in four vectors (rows <-> columns). */
 static void
 transpose4 (dwpacked *r0, dwpacked *r1, dwpacked *r2, dwpacked *r3)
 {
@@ -160,8 +162,6 @@ transpose4 (dwpacked *r0, dwpacked *r1, dwpacked *r2, dwpacked *r3)
   *r3 = __builtin_shufflevector (a1, a3, 2, 3, 6, 7);
 }
 
-/* Encrypt exactly four blocks held in vertical layout (lane = block) in
-   v[16]. Removes the per-round diagonalization shuffles the row core needs. */
 static void
 cc20_xor_x4 (dwpacked v[16], const uint8_t *pt, uint8_t *out)
 {
@@ -319,19 +319,19 @@ cc20_xor_x8 (qwpacked v[16], const uint8_t *pt, uint8_t *out)
 #endif /* TCT_SIMD256 */
 
 void
-tct_chacha20_encrypt_or_decrypt (const uint8_t *key, const uint64_t counter,
+tct_chacha20_encrypt_or_decrypt (const uint8_t *key, const uint32_t counter,
                                  const uint8_t *nonce, const uint8_t *in,
-                                 const uint32_t in_len, uint8_t *out)
+                                 const uint64_t in_len, uint8_t *out)
 {
-  /* Constant/key/nonce state is invariant across blocks; build it once. */
   const dwpacked s0 = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
   const dwpacked s1 = { from_le32 (key), from_le32 (key + 4),
                         from_le32 (key + 8), from_le32 (key + 12) };
   const dwpacked s2 = { from_le32 (key + 16), from_le32 (key + 20),
                         from_le32 (key + 24), from_le32 (key + 28) };
-  const uint32_t n0 = from_le32 (nonce), n1 = from_le32 (nonce + 4);
-  const uint32_t full = in_len / 64;
-  uint32_t i = 0;
+  const uint32_t n0 = from_le32 (nonce), n1 = from_le32 (nonce + 4),
+                 n2 = from_le32 (nonce + 8);
+  const uint64_t full = in_len / 64;
+  uint64_t i = 0;
 
 #ifdef TCT_SIMD256
   {
@@ -339,21 +339,17 @@ tct_chacha20_encrypt_or_decrypt (const uint8_t *key, const uint64_t counter,
         = { splat8 (s0[0]), splat8 (s0[1]), splat8 (s0[2]), splat8 (s0[3]),
             splat8 (s1[0]), splat8 (s1[1]), splat8 (s1[2]), splat8 (s1[3]),
             splat8 (s2[0]), splat8 (s2[1]), splat8 (s2[2]), splat8 (s2[3]) };
-    const qwpacked bn0 = splat8 (n0), bn1 = splat8 (n1);
+    const qwpacked bn0 = splat8 (n0), bn1 = splat8 (n1), bn2 = splat8 (n2);
     for (; i + 8 <= full; i += 8)
       {
-        uint64_t c[8];
+        uint32_t c[8];
         for (unsigned int j = 0; j < 8; ++j)
-          c[j] = counter + i + j;
-        qwpacked lo = { (uint32_t)c[0], (uint32_t)c[1], (uint32_t)c[2],
-                        (uint32_t)c[3], (uint32_t)c[4], (uint32_t)c[5],
-                        (uint32_t)c[6], (uint32_t)c[7] };
-        qwpacked hi = { (uint32_t)(c[0] >> 32), (uint32_t)(c[1] >> 32),
-                        (uint32_t)(c[2] >> 32), (uint32_t)(c[3] >> 32),
-                        (uint32_t)(c[4] >> 32), (uint32_t)(c[5] >> 32),
-                        (uint32_t)(c[6] >> 32), (uint32_t)(c[7] >> 32) };
+          {
+            c[j] = counter + (uint32_t)i + j;
+          }
+        qwpacked lo = { c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7] };
         qwpacked v[16] = { b[0], b[1], b[2],  b[3],  b[4], b[5], b[6], b[7],
-                           b[8], b[9], b[10], b[11], lo,   hi,   bn0,  bn1 };
+                           b[8], b[9], b[10], b[11], lo,   bn0,  bn1,  bn2 };
         cc20_xor_x8 (v, in + 64 * i, out + 64 * i);
       }
   }
@@ -366,37 +362,34 @@ tct_chacha20_encrypt_or_decrypt (const uint8_t *key, const uint64_t counter,
       bc[4 + j] = splat (s1[j]);
       bc[8 + j] = splat (s2[j]);
     }
-  const dwpacked bn0 = splat (n0), bn1 = splat (n1);
+  const dwpacked bn0 = splat (n0), bn1 = splat (n1), bn2 = splat (n2);
   for (; i + 4 <= full; i += 4)
     {
-      uint64_t c0 = counter + i, c1 = counter + i + 1, c2 = counter + i + 2,
-               c3 = counter + i + 3;
-      dwpacked v[16]
-          = { bc[0],
-              bc[1],
-              bc[2],
-              bc[3],
-              bc[4],
-              bc[5],
-              bc[6],
-              bc[7],
-              bc[8],
-              bc[9],
-              bc[10],
-              bc[11],
-              (dwpacked){ (uint32_t)c0, (uint32_t)c1, (uint32_t)c2,
-                          (uint32_t)c3 },
-              (dwpacked){ (uint32_t)(c0 >> 32), (uint32_t)(c1 >> 32),
-                          (uint32_t)(c2 >> 32), (uint32_t)(c3 >> 32) },
-              bn0,
-              bn1 };
+      uint32_t c0 = counter + (uint32_t)i, c1 = counter + (uint32_t)i + 1,
+               c2 = counter + (uint32_t)i + 2, c3 = counter + (uint32_t)i + 3;
+      dwpacked v[16] = { bc[0],
+                         bc[1],
+                         bc[2],
+                         bc[3],
+                         bc[4],
+                         bc[5],
+                         bc[6],
+                         bc[7],
+                         bc[8],
+                         bc[9],
+                         bc[10],
+                         bc[11],
+                         (dwpacked){ c0, c1, c2, c3 },
+                         bn0,
+                         bn1,
+                         bn2 };
       cc20_xor_x4 (v, in + 64 * i, out + 64 * i);
     }
 
   /* Remaining whole blocks (fewer than the vector width), one at a time. */
   for (; i < full; ++i)
     {
-      dwpacked s3 = cc20_counter_row (counter + i, n0, n1);
+      dwpacked s3 = cc20_counter_row (counter + (uint32_t)i, n0, n1, n2);
       dwpacked ks[4];
       chacha_core (s0, s1, s2, s3, ks);
       cc20_xor64 (in + 64 * i, ks, out + 64 * i);
@@ -405,13 +398,17 @@ tct_chacha20_encrypt_or_decrypt (const uint8_t *key, const uint64_t counter,
   /* Trailing partial block. */
   if ((in_len % 64) != 0)
     {
-      dwpacked s3 = cc20_counter_row (counter + full, n0, n1);
+      dwpacked s3 = cc20_counter_row (counter + full, n0, n1, n2);
       dwpacked ks[4];
       chacha_core (s0, s1, s2, s3, ks);
       uint8_t key_stream[64];
       for (unsigned int k = 0; k < 16; ++k)
-        to_le32 (ks[k / 4][k % 4], key_stream + 4 * k);
+        {
+          to_le32 (ks[k / 4][k % 4], key_stream + 4 * k);
+        }
       for (uint32_t j = 0; j < in_len % 64; ++j)
-        out[64 * full + j] = in[64 * full + j] ^ key_stream[j];
+        {
+          out[64 * full + j] = in[64 * full + j] ^ key_stream[j];
+        }
     }
 }

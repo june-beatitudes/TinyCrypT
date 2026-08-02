@@ -1,1 +1,1 @@
-option('avx2', type: 'boolean', value: false)
+option('simd', type: 'combo', value: 'none', choices: ['none', '128-bit', '256-bit'])
