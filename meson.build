@@ -123,7 +123,6 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
       install: false,
     ),
   )
-  # Not included by default because it takes ~110 seconds to execute (includes a million-repetition test case)
   test(
     'x25519_tests',
     executable(
