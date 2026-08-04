@@ -198,34 +198,37 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
                c = hash_internal[2], d = hash_internal[3],
                e = hash_internal[4], f = hash_internal[5],
                g = hash_internal[6], k = hash_internal[7];
-      /*@ loop invariant 0 <= j <= 64;
-        @ loop assigns j, a;
-        @ loop assigns b;
-        @ loop assigns c;
-        @ loop assigns d;
-        @ loop assigns e;
-        @ loop assigns f;
-        @ loop assigns g;
-        @ loop assigns k;
-        @ loop variant 64 - j;
-       */
-      for (unsigned int j = 0; j < 64; ++j)
-        {
-          uint32_t S1 = rotr_32 (e, 6) ^ rotr_32 (e, 11) ^ rotr_32 (e, 25);
-          uint32_t ch = (e & f) ^ ((~e) & g);
-          uint32_t temp1 = k + S1 + ch + K256[j] + w[j];
-          uint32_t S0 = rotr_32 (a, 2) ^ rotr_32 (a, 13) ^ rotr_32 (a, 22);
-          uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
-          uint32_t temp2 = S0 + maj;
-          k = g;
-          g = f;
-          f = e;
-          e = d + temp1;
-          d = c;
-          c = b;
-          b = a;
-          a = temp1 + temp2;
-        }
+      uint32_t S1, ch, temp1, S0, maj, temp2;
+#define LOOP_BODY(j)                                                          \
+  {                                                                           \
+    S1 = rotr_32 (e, 6) ^ rotr_32 (e, 11) ^ rotr_32 (e, 25);                  \
+    ch = (e & f) ^ ((~e) & g);                                                \
+    temp1 = k + S1 + ch + K256[j] + w[j];                                     \
+    S0 = rotr_32 (a, 2) ^ rotr_32 (a, 13) ^ rotr_32 (a, 22);                  \
+    maj = (a & b) ^ (a & c) ^ (b & c);                                        \
+    temp2 = S0 + maj;                                                         \
+    k = g;                                                                    \
+    g = f;                                                                    \
+    f = e;                                                                    \
+    e = d + temp1;                                                            \
+    d = c;                                                                    \
+    c = b;                                                                    \
+    b = a;                                                                    \
+    a = temp1 + temp2;                                                        \
+  }
+#define LOOP4(start)                                                          \
+  LOOP_BODY (start)                                                           \
+  LOOP_BODY (start + 1) LOOP_BODY (start + 2) LOOP_BODY (start + 3)
+#define LOOP16(start)                                                         \
+  LOOP4 (start) LOOP4 (start + 4) LOOP4 (start + 8) LOOP4 (start + 12)
+#define LOOP64(start)                                                         \
+  LOOP16 (start) LOOP16 (start + 16) LOOP16 (start + 32) LOOP16 (start + 48)
+      LOOP64 (0)
+#undef LOOP_BODY
+#undef LOOP4
+#undef LOOP16
+#undef LOOP64
+
       hash_internal[0] += a;
       hash_internal[1] += b;
       hash_internal[2] += c;
@@ -354,27 +357,37 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
                c = hash_internal[2], d = hash_internal[3],
                e = hash_internal[4], f = hash_internal[5],
                g = hash_internal[6], k = hash_internal[7];
-      /*@ loop invariant 0 <= j <= 80;
-        @ loop assigns a, b, c, d, e, f, g, k, j;
-        @ loop variant 80 - j;
-       */
-      for (unsigned int j = 0; j < 80; ++j)
-        {
-          uint64_t S1 = rotr_64 (e, 14) ^ rotr_64 (e, 18) ^ rotr_64 (e, 41);
-          uint64_t ch = (e & f) ^ ((~e) & g);
-          uint64_t temp1 = k + S1 + ch + K512[j] + w[j];
-          uint64_t S0 = rotr_64 (a, 28) ^ rotr_64 (a, 34) ^ rotr_64 (a, 39);
-          uint64_t maj = (a & b) ^ (a & c) ^ (b & c);
-          uint64_t temp2 = S0 + maj;
-          k = g;
-          g = f;
-          f = e;
-          e = d + temp1;
-          d = c;
-          c = b;
-          b = a;
-          a = temp1 + temp2;
-        }
+      uint64_t S1, ch, temp1, S0, maj, temp2;
+#define LOOP_BODY(j)                                                          \
+  {                                                                           \
+    S1 = rotr_64 (e, 14) ^ rotr_64 (e, 18) ^ rotr_64 (e, 41);                 \
+    ch = (e & f) ^ ((~e) & g);                                                \
+    temp1 = k + S1 + ch + K512[j] + w[j];                                     \
+    S0 = rotr_64 (a, 28) ^ rotr_64 (a, 34) ^ rotr_64 (a, 39);                 \
+    maj = (a & b) ^ (a & c) ^ (b & c);                                        \
+    temp2 = S0 + maj;                                                         \
+    k = g;                                                                    \
+    g = f;                                                                    \
+    f = e;                                                                    \
+    e = d + temp1;                                                            \
+    d = c;                                                                    \
+    c = b;                                                                    \
+    b = a;                                                                    \
+    a = temp1 + temp2;                                                        \
+  }
+#define LOOP4(start)                                                          \
+  LOOP_BODY (start)                                                           \
+  LOOP_BODY (start + 1) LOOP_BODY (start + 2) LOOP_BODY (start + 3)
+#define LOOP16(start)                                                         \
+  LOOP4 (start) LOOP4 (start + 4) LOOP4 (start + 8) LOOP4 (start + 12)
+#define LOOP64(start)                                                         \
+  LOOP16 (start) LOOP16 (start + 16) LOOP16 (start + 32) LOOP16 (start + 48)
+      LOOP64 (0)
+      LOOP16 (64)
+#undef LOOP_BODY
+#undef LOOP4
+#undef LOOP16
+#undef LOOP64
       hash_internal[0] += a;
       hash_internal[1] += b;
       hash_internal[2] += c;
