@@ -6,10 +6,10 @@
 #include <stdio.h>
 #include <time.h>
 
-#define SHA256_ITERS (1024 * 64)
-#define SHA512_ITERS (1024 * 64)
-#define CHACHA20_ITERS (1024 * 64)
-#define EDDSA_ITERS (1024 * 64)
+#define SHA256_ITERS (64 * 1024)
+#define SHA512_ITERS (64 * 1024)
+#define CHACHA20_ITERS (64 * 1024)
+#define EDDSA_ITERS (64)
 
 static inline void
 timespec_diff (const struct timespec *a, const struct timespec *b,
@@ -28,7 +28,7 @@ timespec_diff (const struct timespec *a, const struct timespec *b,
 int
 main (int argc, const char **argv)
 {
-  uint8_t buf[16 * 1024];
+  uint8_t buf[1024 * 16];
   for (size_t i = 0; i < sizeof (buf); ++i)
     {
       buf[i] = i & 0xff;
@@ -45,8 +45,9 @@ main (int argc, const char **argv)
   clock_gettime (CLOCK_REALTIME, &b);
   struct timespec diff;
   timespec_diff (&b, &a, &diff);
-  printf ("Took %ld.%09ld seconds to compute %u 16KiB SHA-256 hashes\n",
-          diff.tv_sec, diff.tv_nsec, SHA256_ITERS);
+  printf ("Took %lld.%09ld seconds to compute %u 16KiB SHA-256 hashes\n",
+          (long long)diff.tv_sec, (long)diff.tv_nsec,
+          (unsigned int)SHA256_ITERS);
 
   uint8_t sha512[64];
   clock_gettime (CLOCK_REALTIME, &a);
@@ -56,8 +57,9 @@ main (int argc, const char **argv)
     }
   clock_gettime (CLOCK_REALTIME, &b);
   timespec_diff (&b, &a, &diff);
-  printf ("Took %ld.%09ld seconds to compute %u 16KiB SHA-512 hashes\n",
-          diff.tv_sec, diff.tv_nsec, SHA512_ITERS);
+  printf ("Took %lld.%09ld seconds to compute %u 16KiB SHA-512 hashes\n",
+          (long long)diff.tv_sec, (long)diff.tv_nsec,
+          (unsigned int)SHA512_ITERS);
 
   const uint8_t CC20_KEY[32]
       = { 0xb3, 0x36, 0x31, 0x73, 0x8e, 0xc0, 0x70, 0xe3, 0x5d, 0x77, 0xd6,
@@ -83,12 +85,13 @@ main (int argc, const char **argv)
     }
   clock_gettime (CLOCK_REALTIME, &b);
   timespec_diff (&b, &a, &diff);
-  printf ("Took %ld.%09ld seconds to compute %u 16KiB ChaCha20 round-trips\n",
-          diff.tv_sec, diff.tv_nsec, CHACHA20_ITERS);
+  printf ("Took %lld.%09ld seconds to compute %u 16KiB ChaCha20 round-trips\n",
+          (long long)diff.tv_sec, (long)diff.tv_nsec,
+          (unsigned int)CHACHA20_ITERS);
 
   clock_gettime (CLOCK_REALTIME, &a);
   uint8_t signature[64];
-  uint8_t working_buf[16 * 1024 + 64];
+  uint8_t working_buf[sizeof (buf) + 64];
   static const uint8_t ED25519_PRIVKEY[]
       = { 0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a,
           0xf4, 0x92, 0xec, 0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32,
@@ -104,8 +107,9 @@ main (int argc, const char **argv)
     }
   clock_gettime (CLOCK_REALTIME, &b);
   timespec_diff (&b, &a, &diff);
-  printf ("Took %ld.%09ld seconds to compute %u 16KiB Ed25519 signatures\n",
-          diff.tv_sec, diff.tv_nsec, EDDSA_ITERS);
+  printf ("Took %lld.%09ld seconds to compute %u 16KiB Ed25519 signatures\n",
+          (long long)diff.tv_sec, (long)diff.tv_nsec,
+          (unsigned int)EDDSA_ITERS);
 
   return 0;
 }

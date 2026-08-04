@@ -31,6 +31,10 @@ build_args = [
   '-fno-sanitize=all',
 ]
 
+if get_option('memconstrained')
+  build_args += '-DTCT_LOWMEM'
+endif
+
 if get_option('simd') == '256-bit'
   build_args += '-DTCT_SIMD128'
   build_args += '-DTCT_SIMD256'
