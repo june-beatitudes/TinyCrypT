@@ -1,13 +1,12 @@
-extern "C"
-{
 #include "tinycrypt/chacha20_poly1305.h"
-}
-#include "gtest/gtest.h"
-#include <cstdint>
-#include <cstring>
-#include <vector>
+#include "unity.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
-TEST (ChaCha20_Poly1305, cc20_p1305_full)
+void
+test_cc20_p1305_rfc (void)
 {
   const uint8_t KEY[] = {
     0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a,
@@ -43,13 +42,14 @@ TEST (ChaCha20_Poly1305, cc20_p1305_full)
   tct_aead_chacha20_poly1305_encrypt (AAD, sizeof (AAD), KEY, NONCE, INPUT,
                                       sizeof (INPUT) - 1, actual_ciphertext,
                                       actual_mac);
-  EXPECT_EQ (memcmp (actual_ciphertext, EXPECTED_CIPHERTEXT,
-                     sizeof (EXPECTED_CIPHERTEXT)),
-             0);
-  EXPECT_EQ (memcmp (actual_mac, EXPECTED_MAC, sizeof (EXPECTED_MAC)), 0);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED_CIPHERTEXT, actual_ciphertext,
+                                sizeof (EXPECTED_CIPHERTEXT));
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED_MAC, actual_mac,
+                                sizeof (EXPECTED_MAC));
 }
 
-TEST (ChaCha20_Poly1305, round_trip_lengths)
+void
+test_cc20_p1305_round_trip_lengths (void)
 {
   const uint8_t KEY[32]
       = { 0x42, 0x90, 0xbc, 0xb1, 0x54, 0x17, 0x35, 0x31, 0xf3, 0x14, 0xaf,
@@ -62,53 +62,44 @@ TEST (ChaCha20_Poly1305, round_trip_lengths)
   // Lengths straddling block (64) and vector-width (256, 512) boundaries.
   const size_t lengths[] = { 0,   1,   63,  64,  65,  127, 128,  255,  256,
                              257, 320, 511, 512, 513, 576, 1024, 2048, 4096 };
+  uint8_t plaintext_buf[4096];
+  uint8_t frame_buf[4096 + 16];
 
   for (size_t aad_len = 0; aad_len <= sizeof (AAD); aad_len += sizeof (AAD))
     {
-      for (size_t len : lengths)
+      for (size_t len = 0; len < sizeof (lengths) / sizeof (size_t); ++len)
         {
-          std::vector<uint8_t> plaintext (len), cipher (len), recovered (len);
           for (size_t i = 0; i < len; ++i)
-            plaintext[i] = static_cast<uint8_t> (i * 31 + 7);
+            {
+              plaintext_buf[i] = 0xff & (i * 31 + 7);
+            }
 
-          uint8_t mac[16];
           tct_aead_chacha20_poly1305_encrypt (AAD, aad_len, KEY, NONCE,
-                                              plaintext.data (), len,
-                                              cipher.data (), mac);
+                                              plaintext_buf, len, frame_buf,
+                                              frame_buf + len);
 
-          // ciphertext must differ from plaintext where there is data
-          if (len > 0)
+          uint8_t acc = 0x0;
+          for (size_t i = 0; i < len; ++i)
             {
-              EXPECT_NE (memcmp (cipher.data (), plaintext.data (), len), 0)
-                  << "len=" << len;
+              acc |= frame_buf[i] ^ plaintext_buf[i];
             }
-
-          // frame = ciphertext || 16-byte tag
-          std::vector<uint8_t> frame (len + 16);
-          if (len != 0)
-            {
-              memcpy (frame.data (), cipher.data (), len);
-            }
-          memcpy (frame.data () + len, mac, 16);
+          TEST_ASSERT_FALSE (len > 0 && acc == 0x0);
 
           bool ok = tct_aead_chacha20_poly1305_decrypt_and_verify (
-              AAD, aad_len, KEY, NONCE, frame.data (), len, recovered.data ());
-          EXPECT_TRUE (ok) << "verify failed: aad_len=" << aad_len
-                           << " len=" << len;
+              AAD, aad_len, KEY, NONCE, frame_buf, len, frame_buf);
+          TEST_ASSERT_TRUE (ok);
           if (len != 0)
             {
-              EXPECT_EQ (memcmp (recovered.data (), plaintext.data (), len), 0)
-                  << "aad_len=" << aad_len << " len=" << len;
+              TEST_ASSERT_EQUAL_HEX8_ARRAY (plaintext_buf, frame_buf, len);
             }
 
           // a single flipped ciphertext bit must fail verification
           if (len > 0)
             {
-              frame[0] ^= 0x01;
-              EXPECT_FALSE (tct_aead_chacha20_poly1305_decrypt_and_verify (
-                  AAD, aad_len, KEY, NONCE, frame.data (), len,
-                  recovered.data ()))
-                  << "tamper not detected: len=" << len;
+              frame_buf[0] ^= 0x01;
+              TEST_ASSERT_FALSE (
+                  tct_aead_chacha20_poly1305_decrypt_and_verify (
+                      AAD, aad_len, KEY, NONCE, frame_buf, len, frame_buf));
             }
         }
     }

@@ -1,12 +1,9 @@
-extern "C"
-{
 #include "tinycrypt/x25519.h"
-}
-#include "gtest/gtest.h"
-#include <cstdint>
-#include <cstring>
+#include "unity.h"
+#include <stdint.h>
 
-TEST (X25519, x25519_scalarmult_0)
+void
+test_x25519_rfc0 (void)
 {
   const uint8_t SCALAR[]
       = { 0xa5, 0x46, 0xe3, 0x6b, 0xf0, 0x52, 0x7c, 0x9d, 0x3b, 0x16, 0x15,
@@ -22,10 +19,11 @@ TEST (X25519, x25519_scalarmult_0)
           0x71, 0xf7, 0x54, 0xb4, 0x07, 0x55, 0x77, 0xa2, 0x85, 0x52 };
   uint8_t actual[sizeof (EXPECTED)];
   tct_x25519 (SCALAR, U, actual);
-  EXPECT_EQ (memcmp (actual, EXPECTED, sizeof (EXPECTED)), 0);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED, actual, sizeof (EXPECTED));
 }
 
-TEST (X25519, x25519_scalarmult_1)
+void
+test_x25519_rfc1 (void)
 {
   const uint8_t SCALAR[]
       = { 0x4b, 0x66, 0xe9, 0xd4, 0xd1, 0xb4, 0x67, 0x3c, 0x5a, 0xd2, 0x26,
@@ -41,10 +39,11 @@ TEST (X25519, x25519_scalarmult_1)
           0xa1, 0x52, 0xe6, 0xf8, 0xf7, 0x64, 0x7a, 0xac, 0x79, 0x57 };
   uint8_t actual[sizeof (EXPECTED)];
   tct_x25519 (SCALAR, U, actual);
-  EXPECT_EQ (memcmp (actual, EXPECTED, sizeof (EXPECTED)), 0);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED, actual, sizeof (EXPECTED));
 }
 
-TEST (X25519, x25519_repetition_1)
+void
+test_x25519_repetition_1 (void)
 {
   uint8_t buf[96];
   uint8_t *k = buf;
@@ -61,10 +60,11 @@ TEST (X25519, x25519_repetition_1)
       = { 0x42, 0x2c, 0x8e, 0x7a, 0x62, 0x27, 0xd7, 0xbc, 0xa1, 0x35, 0x0b,
           0x3e, 0x2b, 0xb7, 0x27, 0x9f, 0x78, 0x97, 0xb8, 0x7b, 0xb6, 0x85,
           0x4b, 0x78, 0x3c, 0x60, 0xe8, 0x03, 0x11, 0xae, 0x30, 0x79 };
-  EXPECT_EQ (memcmp (out, EXPECTED, sizeof (EXPECTED)), 0);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED, out, sizeof (EXPECTED));
 }
 
-TEST (X25519, x25519_repetition_1000)
+void
+test_x25519_repetition_1000 (void)
 {
   uint8_t buf[96];
   uint8_t *k = buf;
@@ -88,32 +88,33 @@ TEST (X25519, x25519_repetition_1000)
       = { 0x68, 0x4c, 0xf5, 0x9b, 0xa8, 0x33, 0x09, 0x55, 0x28, 0x00, 0xef,
           0x56, 0x6f, 0x2f, 0x4d, 0x3c, 0x1c, 0x38, 0x87, 0xc4, 0x93, 0x60,
           0xe3, 0x87, 0x5f, 0x2e, 0xb9, 0x4d, 0x99, 0x53, 0x2c, 0x51 };
-  EXPECT_EQ (memcmp (k, EXPECTED, sizeof (EXPECTED)), 0);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED, k, sizeof (EXPECTED));
 }
 
-// TEST (X25519, x25519_repetition_1000000)
-// {
-//   uint8_t buf[96];
-//   uint8_t *k = buf;
-//   uint8_t *u = buf + 32;
-//   uint8_t *out = buf + 64;
-//   for (unsigned int i = 0; i < 32; ++i)
-//     {
-//       k[i] = u[i] = 0x0;
-//     }
-//   k[0] = 0x9;
-//   u[0] = 0x9;
-//   for (unsigned int i = 0; i < 1000000; ++i)
-//     {
-//       tct_x25519 (k, u, out);
-//       uint8_t *tmp = k;
-//       k = out;
-//       out = u;
-//       u = tmp;
-//     }
-//   const uint8_t EXPECTED[]
-//       = { 0x7c, 0x39, 0x11, 0xe0, 0xab, 0x25, 0x86, 0xfd, 0x86, 0x44, 0x97,
-//           0x29, 0x7e, 0x57, 0x5e, 0x6f, 0x3b, 0xc6, 0x01, 0xc0, 0x88, 0x3c,
-//           0x30, 0xdf, 0x5f, 0x4d, 0xd2, 0xd2, 0x4f, 0x66, 0x54, 0x24 };
-//   EXPECT_EQ (memcmp (k, EXPECTED, sizeof (EXPECTED)), 0);
-// }
+void
+test_x25519_repetition_1000000 (void)
+{
+  uint8_t buf[96];
+  uint8_t *k = buf;
+  uint8_t *u = buf + 32;
+  uint8_t *out = buf + 64;
+  for (unsigned int i = 0; i < 32; ++i)
+    {
+      k[i] = u[i] = 0x0;
+    }
+  k[0] = 0x9;
+  u[0] = 0x9;
+  for (unsigned int i = 0; i < 1000000; ++i)
+    {
+      tct_x25519 (k, u, out);
+      uint8_t *tmp = k;
+      k = out;
+      out = u;
+      u = tmp;
+    }
+  const uint8_t EXPECTED[]
+      = { 0x7c, 0x39, 0x11, 0xe0, 0xab, 0x25, 0x86, 0xfd, 0x86, 0x44, 0x97,
+          0x29, 0x7e, 0x57, 0x5e, 0x6f, 0x3b, 0xc6, 0x01, 0xc0, 0x88, 0x3c,
+          0x30, 0xdf, 0x5f, 0x4d, 0xd2, 0xd2, 0x4f, 0x66, 0x54, 0x24 };
+  TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED, k, sizeof (EXPECTED));
+}

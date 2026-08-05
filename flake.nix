@@ -65,7 +65,6 @@
           bear
           tokei
           frama-c
-          z3
           why3
           zig_0_16
           bitwuzla

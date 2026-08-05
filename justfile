@@ -13,7 +13,7 @@ build target="x86_64-avx2": (check-supported target)
 [working-directory('.')]
 test target="x86_64-avx2": (check-supported target)
     @echo 'Testing libtinycrypt for target {{ target }}'
-    cd build-{{ target }} && meson test
+    cd build-{{ target }} && meson test --timeout 10
 
 [working-directory('.')]
 prove-ct target="x86_64-avx2": (check-supported target)
