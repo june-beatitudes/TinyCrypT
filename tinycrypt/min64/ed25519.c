@@ -184,9 +184,6 @@ sub512 (uint64_t *h, const uint64_t *c)
 }
 
 
-/* Fold the top 256 bits into the low 256 via 2^256 = 38 (mod 2^255-19).
-   Replaces a general 256x256 multiply by 2p with a multiply by the small
-   constant 38, leaving value = lo + 38*hi in acc[0..4]. */
 static void
 fold38 (uint64_t *acc)
 {
@@ -654,11 +651,6 @@ load_4 (const unsigned char *in)
          | ((uint64_t)in[3] << 24);
 }
 
-/* Reduce a 512-bit little-endian value in s[0..64) modulo the group order L,
-   writing the 32-byte result to s[0..32). This is the ref10 (public domain)
-   sc_reduce: the 2^252 = -delta (mod L) fold expressed in signed 21-bit limbs.
-   NOTE: the signed left-shifts below are the canonical ref10 idiom; they are
-   well defined on two's-complement targets (x86-64 / aarch64). */
 static void
 sc_reduce (unsigned char *s)
 {
@@ -789,8 +781,6 @@ sc_reduce (unsigned char *s)
 static void
 modl512 (const uint64_t *x, uint64_t *out)
 {
-  /* reduce the 512-bit little-endian value mod L via the sc_reduce fold,
-     through a byte serialization round-trip */
   unsigned char s[64];
   for (unsigned int i = 0; i < 8; ++i)
     for (unsigned int b = 0; b < 8; ++b)

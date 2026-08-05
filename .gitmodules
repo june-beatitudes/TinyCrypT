@@ -1,6 +1,6 @@
-[submodule "tests/googletest"]
-	path = tests/googletest
-	url = https://github.com/google/googletest.git
 [submodule "tests/wycheproof"]
 	path = tests/wycheproof
 	url = https://github.com/C2SP/wycheproof.git
+[submodule "subprojects/Unity"]
+	path = subprojects/Unity
+	url = https://github.com/ThrowTheSwitch/Unity.git
