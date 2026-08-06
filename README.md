@@ -18,8 +18,8 @@ Collection of classical cryptographic primitives written in portable C90 (with o
 
 - The SHA-2 implementations pass all 586 NIST-provided test cases.
 - The ChaCha20-Poly1305 implementations pass the test vectors provided in the RFC (integrating Wycheproof tests is in progress).
-- The Ed25519 implementation passes all 1024 provided test cases.
-- The Curve25519 implementation passes all Wycheproof test cases.
+- The Ed25519 implementation passes all 4096 test cases from `libgcrypt` and all Wycheproof test cases.
+- The Curve25519 implementation passes all Wycheproof test cases and all test vectors provided in the RFC.
 
 ## Proof Validations
 
@@ -36,5 +36,4 @@ Collection of classical cryptographic primitives written in portable C90 (with o
 
 - Frama-C/WP memory soundness proofs are still being developed for most of the codebase, and that includes occasionally finding bugs.
 - There is currently no CI pipeline, and all tests and proofs are done ad-hoc during development.
-- The Ed25519 implementation, whether for 32- or 64-bit, is vulnerable to cache timing attacks due to the way a lookup table is addressed. This can be avoided at the cost of a significant amount of performance by building with the flag `-DTCT_LOWMEM`.
 - The 32-bit Curve25519 implementation is not yet constant time and relies on relatively slow Barrett reductions.
