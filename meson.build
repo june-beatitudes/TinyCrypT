@@ -1,4 +1,4 @@
-project('TinyCrypT', 'c', version: '0.16.0')
+project('TinyCrypT', 'c', version: '0.16.0', meson_version: '>=1.3.0')
 
 incdir = include_directories('.')
 
@@ -29,6 +29,9 @@ build_args = [
   '-O3',
   '-ffreestanding',
   '-fno-sanitize=all',
+  '-Wall',
+  '-Werror',
+  '-std=c99',
 ]
 
 if get_option('memconstrained')
@@ -66,61 +69,79 @@ target = static_library('tinycrypt', sources, c_args: build_args, include_direct
 project_dep = declare_dependency(include_directories: incdir, link_with: target)
 set_variable(meson.project_name() + '_dep', project_dep)
 
+python = find_program('python3')
+
 if not meson.is_subproject() and meson.can_run_host_binaries()
   unity_proj = subproject('Unity')
   unity_dep = unity_proj.get_variable('unity_dep')
   unity_gen_test_runner = unity_proj.get_variable('gen_test_runner')
-  sha2_test_sources = [
-    'tests/src/sha2/SHA512LongMsg.cpp',
-    'tests/src/sha2/SHA512ShortMsg.cpp',
-    'tests/src/sha2/SHA512Monte.cpp',
-    'tests/src/sha2/SHA256LongMsg.cpp',
-    'tests/src/sha2/SHA256ShortMsg.cpp',
-    'tests/src/sha2/SHA256Monte.cpp',
-  ]
 
-  ed25519_test_sources = [
-    'tests/src/ed25519/verify_happy.cpp',
-    'tests/src/ed25519/verify_sad.cpp',
-    'tests/src/ed25519/sign.cpp',
-    'tests/src/ed25519/keygen.cpp',
+  # Note that all the script cares about is the directory the rsp file is in, not which one it is
+  sha2_test_file = custom_target(
+    'nist_sha2_test_file',
+    input: [
+      'tests/src/sha2/testgen.py',
+      'tests/src/sha2/SHA256LongMsg.rsp',
+    ],
+    output: 'nist_sha2_tests.autogen.c',
+    command: [python, '@INPUT@', '@OUTPUT@'],
+  )
+  sha2_test_sources = [sha2_test_file, unity_gen_test_runner.process(sha2_test_file)]
+
+  libgcrypt_test_file = custom_target(
+    'libgcrypt_ed25519_test_file',
+    input: [
+      'tests/src/ed25519/libgcrypt_testgen.py',
+      'tests/src/ed25519/libgcrypt_tests.inp',
+    ],
+    output: 'libgcrypt_ed25519_tests.autogen.c',
+    command: [python, '@INPUT@', '@OUTPUT@'],
+  )
+  ed25519_libgcrypt_sources = [
+    libgcrypt_test_file,
+    unity_gen_test_runner.process(libgcrypt_test_file),
   ]
+  test(
+    'ed25519_libgcrypt_tests',
+    executable(
+      'ed25519_libgcrypt_tests',
+      ed25519_libgcrypt_sources,
+      include_directories: incdir,
+      link_with: target,
+      dependencies: unity_dep,
+      install: false,
+    ),
+  )
+
+  ed25519_wycheproof_test_file = custom_target(
+    'wycheproof_ed25519_test_file',
+    input: [
+      'tests/src/ed25519/wycheproof_testgen.py',
+      'tests/wycheproof/testvectors_v1/ed25519_test.json',
+    ],
+    output: 'wycheproof_ed25519_tests.autogen.c',
+    command: [python, '@INPUT@', '@OUTPUT@'],
+  )
+  ed25519_wycheproof_sources = [
+    ed25519_wycheproof_test_file,
+    unity_gen_test_runner.process(ed25519_wycheproof_test_file),
+  ]
+  test(
+    'ed25519_wycheproof_tests',
+    executable(
+      'ed25519_wycheproof_tests',
+      ed25519_wycheproof_sources,
+      include_directories: incdir,
+      link_with: target,
+      dependencies: unity_dep,
+      install: false,
+    ),
+  )
 
   cc20_p1305_test_sources = [
     'tests/src/chacha20-poly1305/all.c',
     unity_gen_test_runner.process('tests/src/chacha20-poly1305/all.c'),
   ]
-
-  x25519_rfc_sources = [
-    'tests/src/x25519/rfc.c',
-    unity_gen_test_runner.process('tests/src/x25519/rfc.c'),
-  ]
-  x25519_wycheproof_sources = [
-    'tests/src/x25519/wycheproof.c',
-    unity_gen_test_runner.process('tests/src/x25519/wycheproof.c'),
-  ]
-  # test(
-  #   'sha2_tests',
-  #   executable(
-  #     'sha2_tests',
-  #     sha2_test_sources,
-  #     include_directories: incdir,
-  #     link_with: target,
-  #     dependencies: unity_dep,
-  #     install: false,
-  #   ),
-  # )
-  # test(
-  #   'ed25519_tests',
-  #   executable(
-  #     'ed25519_tests',
-  #     ed25519_test_sources,
-  #     include_directories: incdir,
-  #     link_with: target,
-  #     dependencies: unity_dep,
-  #     install: false,
-  #   ),
-  # )
   test(
     'cc20_p1305_tests',
     executable(
@@ -132,6 +153,15 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
       install: false,
     ),
   )
+
+  x25519_rfc_sources = [
+    'tests/src/x25519/rfc.c',
+    unity_gen_test_runner.process('tests/src/x25519/rfc.c'),
+  ]
+  x25519_wycheproof_sources = [
+    'tests/src/x25519/wycheproof.c',
+    unity_gen_test_runner.process('tests/src/x25519/wycheproof.c'),
+  ]
   test(
     'x25519_rfc_tests',
     executable(
@@ -148,6 +178,17 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
     executable(
       'x25519_wycheproof_tests',
       x25519_wycheproof_sources,
+      include_directories: incdir,
+      link_with: target,
+      dependencies: unity_dep,
+      install: false,
+    ),
+  )
+  test(
+    'sha2_tests',
+    executable(
+      'sha2_tests',
+      sha2_test_sources,
       include_directories: incdir,
       link_with: target,
       dependencies: unity_dep,
