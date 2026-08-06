@@ -9,7 +9,7 @@
 #define SHA256_ITERS (64 * 1024)
 #define SHA512_ITERS (64 * 1024)
 #define CHACHA20_ITERS (64 * 1024)
-#define EDDSA_ITERS (64)
+#define EDDSA_ITERS (64 * 1024)
 
 static inline void
 timespec_diff (const struct timespec *a, const struct timespec *b,
