@@ -1064,9 +1064,10 @@ tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
       sigk[i] = from_le32 (signature + 32 + 4 * i);
       sigk[8 + i] = 0x0;
     }
-  modl512 (sigk, sigk);
+  const uint32_t L[8] = { 0x5cf5d3ed, 0x5812631a, 0xa2f79cd6, 0x14def9de,
+                          0x00000000, 0x00000000, 0x00000000, 0x10000000 };
   xB (sigk, sBx, sBy, sBz, sBt);
   scalarmult (chunked, Ax, Ay, hAx, hAy, hAz, hAt);
   addpoints (Rx, Ry, Rz, Rt, hAx, hAy, hAz, hAt, hAx, hAy, hAz, hAt);
-  return points_eq (sBx, sBy, sBz, sBt, hAx, hAy, hAz, hAt);
+  return points_eq (sBx, sBy, sBz, sBt, hAx, hAy, hAz, hAt) * greater256(L, sigk);
 }
