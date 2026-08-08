@@ -1069,5 +1069,7 @@ tct_ed25519_verify (const uint8_t *pubkey, const uint8_t *msg,
   xB (sigk, sBx, sBy, sBz, sBt);
   scalarmult (chunked, Ax, Ay, hAx, hAy, hAz, hAt);
   addpoints (Rx, Ry, Rz, Rt, hAx, hAy, hAz, hAt, hAx, hAy, hAz, hAt);
-  return points_eq (sBx, sBy, sBz, sBt, hAx, hAy, hAz, hAt) * greater256(L, sigk);
+  bool s_in_range = greater256(L, sigk);
+  bool correct_sig = points_eq (sBx, sBy, sBz, sBt, hAx, hAy, hAz, hAt);
+  return s_in_range && correct_sig;
 }

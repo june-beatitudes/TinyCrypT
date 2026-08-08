@@ -1,5 +1,5 @@
 #ifdef TCT_SIMD
-#error You're building the wrong version of ChaCha20! SIMD architectures should use chacha20-simd.c.
+#error "You're building the wrong version of ChaCha20! SIMD architectures should use chacha20-simd.c."
 #endif
 
 #include <stdbool.h>
