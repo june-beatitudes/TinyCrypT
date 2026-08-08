@@ -100,6 +100,14 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
   )
   sha3_test_sources = [sha3_test_file, unity_gen_test_runner.process(sha3_test_file)]
 
+  fuzz_test_file = custom_target(
+    'fuzz_test_file',
+    input: 'tests/src/fuzzing.py',
+    output: 'fuzzing_tests.autogen.c',
+    command: [python, '@INPUT@', '@OUTPUT@'],
+  )
+  fuzz_test_sources = [fuzz_test_file, unity_gen_test_runner.process(fuzz_test_file)]
+
   libgcrypt_test_file = custom_target(
     'libgcrypt_ed25519_test_file',
     input: [
@@ -212,6 +220,17 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
     executable(
       'sha3_tests',
       sha3_test_sources,
+      include_directories: incdir,
+      link_with: target,
+      dependencies: unity_dep,
+      install: false,
+    ),
+  )
+  test(
+    'fuzz_tests',
+    executable(
+      'fuzz_tests',
+      fuzz_test_sources,
       include_directories: incdir,
       link_with: target,
       dependencies: unity_dep,

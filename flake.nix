@@ -68,14 +68,15 @@
             clang-tools
             bear
             tokei
-            frama-c
-            why3
             zig_0_16
-            bitwuzla
             ocamlPackages.findlib
             perf
-            flamegraph
-            (python314.withPackages (ps: with ps; [ lief ]))
+            (python314.withPackages (
+              ps: with ps; [
+                lief
+                cryptography
+              ]
+            ))
           ]
           ++ [
             binsec
