@@ -9,6 +9,7 @@ build target="x86_64-avx2": (check-supported target)
     @echo 'Building libtinycrypt for target {{ target }}'
     meson setup --cross-file $(pwd)/machines/{{ target }}.ini build-{{ target }}
     ninja -C build-{{ target }} libtinycrypt.a
+    cp build-{{ target }}/compile_commands.json .
 
 [working-directory('.')]
 test target="x86_64-avx2": (check-supported target)

@@ -1,6 +1,131 @@
 {
   "nodes": {
+    "binutils_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-OYA8KwYg4LUDt4fnsVaHRC4fuljrMGz4Pbr86wDTRXU=",
+        "type": "file",
+        "url": "https://mirror.techrich.hk/gnu/binutils/binutils-2.44.tar.xz"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://mirror.techrich.hk/gnu/binutils/binutils-2.44.tar.xz"
+      }
+    },
+    "config_sub_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-3w6IzFp3+gw6eZoymp+d5YSac2WMLaqwPfBo4zQX6a8=",
+        "type": "file",
+        "url": "https://raw.githubusercontent.com/gcc-mirror/gcc/refs/heads/master/config.sub"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://raw.githubusercontent.com/gcc-mirror/gcc/refs/heads/master/config.sub"
+      }
+    },
+    "gcc_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-NnhgKSw896//2PpcR0ZNJpYxkG6qt/kce7AeFJa2IbE=",
+        "type": "file",
+        "url": "https://ftpmirror.gnu.org/gnu/gcc/gcc-9.4.0/gcc-9.4.0.tar.xz"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://ftpmirror.gnu.org/gnu/gcc/gcc-9.4.0/gcc-9.4.0.tar.xz"
+      }
+    },
+    "gmp_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-I8Cf24PM212ulne8UtJvXLJum27NRI1RrIxEnTUL/I0=",
+        "type": "file",
+        "url": "https://mirror.techrich.hk/gnu/gmp/gmp-6.3.0.tar.xz"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://mirror.techrich.hk/gnu/gmp/gmp-6.3.0.tar.xz"
+      }
+    },
+    "mpc_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-qwzm1ICXkZp7S77HiaXwBScxXosei/R7ztD5H9aSErE=",
+        "type": "file",
+        "url": "https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz"
+      }
+    },
+    "mpfr_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-H40KwMrb8h6uehwnfKIN6WeeHE6MKc7m6F355vyzaY4=",
+        "type": "file",
+        "url": "https://www.mpfr.org/mpfr-current/mpfr-4.2.2.tar.xz"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://www.mpfr.org/mpfr-current/mpfr-4.2.2.tar.xz"
+      }
+    },
+    "musl_cross_flake": {
+      "inputs": {
+        "binutils_source": "binutils_source",
+        "config_sub_source": "config_sub_source",
+        "gcc_source": "gcc_source",
+        "gmp_source": "gmp_source",
+        "mpc_source": "mpc_source",
+        "mpfr_source": "mpfr_source",
+        "musl_source": "musl_source",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1786061705,
+        "narHash": "sha256-pHLV/TkU0JK0cuXeAK5mOHjCUHPMZrPIR53KfJaJIfA=",
+        "ref": "refs/heads/master",
+        "rev": "4e64aa2ebe2bdd71a724e2511090360a2f44f629",
+        "revCount": 278,
+        "type": "git",
+        "url": "https://forge.eyes-like-fire.org/juniper/musl-cross-flake.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://forge.eyes-like-fire.org/juniper/musl-cross-flake.git"
+      }
+    },
+    "musl_source": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-J0R0QwrTn2I85lmlhEMj7iOnsD02l0c/ZEN6HBz8wnE=",
+        "type": "file",
+        "url": "https://musl.libc.org/releases/musl-1.2.6.tar.gz"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://musl.libc.org/releases/musl-1.2.6.tar.gz"
+      }
+    },
     "nixpkgs": {
+      "locked": {
+        "lastModified": 1785989512,
+        "narHash": "sha256-HFQhkQcl5D1hUNoen3SGHCSFCt2Bg6uP+HgbrnA3InQ=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "445d861c6d31b4af0c79d8d4be2331f762a361d7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
       "locked": {
         "lastModified": 1784707089,
         "narHash": "sha256-2V/6imsUgB7mPZlHY54oeVBRDoZbPKnvzwkAHUSSufk=",
@@ -18,7 +143,8 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "musl_cross_flake": "musl_cross_flake",
+        "nixpkgs": "nixpkgs_2"
       }
     }
   },
