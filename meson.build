@@ -3,7 +3,7 @@ project('TinyCrypT', 'c', version: '0.16.0', meson_version: '>=1.3.0')
 incdir = include_directories('.')
 
 sources = [
-  'tinycrypt/portable/kangarootwelve128.c',
+  'tinycrypt/portable/sha3.c',
   'tinycrypt/portable/sha2.c',
 ]
 
@@ -87,6 +87,18 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
     command: [python, '@INPUT@', '@OUTPUT@'],
   )
   sha2_test_sources = [sha2_test_file, unity_gen_test_runner.process(sha2_test_file)]
+
+  # See comment above
+  sha3_test_file = custom_target(
+    'nist_sha3_test_file',
+    input: [
+      'tests/src/sha3/testgen.py',
+      'tests/src/sha3/SHAKE128LongMsg.rsp',
+    ],
+    output: 'nist_sha3_tests.autogen.c',
+    command: [python, '@INPUT@', '@OUTPUT@'],
+  )
+  sha3_test_sources = [sha3_test_file, unity_gen_test_runner.process(sha3_test_file)]
 
   libgcrypt_test_file = custom_target(
     'libgcrypt_ed25519_test_file',
@@ -189,6 +201,17 @@ if not meson.is_subproject() and meson.can_run_host_binaries()
     executable(
       'sha2_tests',
       sha2_test_sources,
+      include_directories: incdir,
+      link_with: target,
+      dependencies: unity_dep,
+      install: false,
+    ),
+  )
+  test(
+    'sha3_tests',
+    executable(
+      'sha3_tests',
+      sha3_test_sources,
       include_directories: incdir,
       link_with: target,
       dependencies: unity_dep,
