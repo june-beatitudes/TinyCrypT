@@ -1,1 +1,4 @@
 BasedOnStyle: GNU
+WhitespaceSensitiveMacros:
+  - __func_contract__
+  - __loop_contract__
