@@ -1,0 +1,24 @@
+[general]
+sources_under_test = ["tinycrypt/portable/sha3.c"]
+apply_loop_contracts = true
+cflags = ""
+
+[proofs.tct_shake_absorb]
+object_bits = 9
+enforce = ["tct_shake_absorb", "kp", "to_le64", "from_le64", "rotl64"]
+replace = ["tct_shake_init", "tct_shake_full", "tct_shake_squeeze_destructive"]
+
+[proofs.tct_shake_init]
+object_bits = 8
+enforce = ["tct_shake_init", "kp", "to_le64", "from_le64", "rotl64"]
+replace = ["tct_shake_absorb", "tct_shake_full", "tct_shake_squeeze_destructive"]
+
+[proofs.tct_shake_squeeze_destructive]
+object_bits = 10
+enforce = ["tct_shake_squeeze_destructive", "kp", "to_le64", "from_le64", "rotl64"]
+replace = ["tct_shake_absorb", "tct_shake_full", "tct_shake_init"]
+
+[proofs.tct_shake_full]
+object_bits = 12
+enforce = ["tct_shake_full", "kp", "to_le64", "from_le64", "rotl64"]
+replace = ["tct_shake_init", "tct_shake_absorb", "tct_shake_squeeze_destructive"]

@@ -23,6 +23,13 @@ prove-ct target="x86_64-avx2": (check-supported target)
     binsec -sse -checkct -sse-script proofs/x25519/binsec.cfg ./test -sse-depth 2000000
 
 [working-directory('.')]
+prove-soundness:
+    @echo "Running all libtinycrypt soundness proofs"
+    mkdir -p build-soundness
+    python3 proofs/cbmc/create_ninja.py $(pwd) proofs/cbmc/sha3/manifest.toml $(pwd)/build-soundness $(pwd)
+    ninja -C build-soundness
+
+[working-directory('.')]
 check-supported target:
     #!{{ bash }}
     set -euo pipefail

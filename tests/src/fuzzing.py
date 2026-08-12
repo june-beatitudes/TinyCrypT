@@ -59,10 +59,6 @@ with open(sys.argv[1], "w") as of:
             file=of,
         )
         print(
-            "tct_aead_chacha20_poly1305_encrypt (AAD, sizeof (AAD), KEY,NONCE, DATA, sizeof (DATA), actual, actual + sizeof (DATA));",
-            file=of,
-        )
-        print(
             "TEST_ASSERT_EQUAL_HEX8_ARRAY (EXPECTED, actual, sizeof (EXPECTED));",
             file=of,
         )

@@ -71,10 +71,13 @@
             zig_0_16
             ocamlPackages.findlib
             perf
+            bitwuzla
+            cbmc
             (python314.withPackages (
               ps: with ps; [
                 lief
                 cryptography
+                ninja
               ]
             ))
           ]
