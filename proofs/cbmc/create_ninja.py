@@ -26,7 +26,7 @@ with (
 
     writer.rule(
         "compile",
-        f"$gotocc $in -o $out --function harness $cflags -I{INCLUDE_PATH}",
+        f"$gotocc $in -o $out --function harness $cflags -I{INCLUDE_PATH} -DCBMC",
     )
     writer.rule(
         "instrument",

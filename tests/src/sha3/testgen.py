@@ -52,7 +52,7 @@ with open(sys.argv[2], "w") as of:
             if "256" in test_group:
                 print("uint8_t actual_digest[32];", file=of)
                 print(
-                    f"tct_shake_full({test_group}_MSG{i}, sizeof({test_group}_MSG{i}), 256, actual_digest, 32);",
+                    f"tct_shake_full({test_group}_MSG{i}, sizeof({test_group}_MSG{i}), TCT_SHAKE256, actual_digest, 32);",
                     file=of,
                 )
                 print(
@@ -62,7 +62,7 @@ with open(sys.argv[2], "w") as of:
             else:
                 print("uint8_t actual_digest[16];", file=of)
                 print(
-                    f"tct_shake_full({test_group}_MSG{i}, sizeof({test_group}_MSG{i}), 128, actual_digest, 16);",
+                    f"tct_shake_full({test_group}_MSG{i}, sizeof({test_group}_MSG{i}), TCT_SHAKE128, actual_digest, 16);",
                     file=of,
                 )
                 print(
@@ -107,12 +107,12 @@ with open(sys.argv[2], "w") as of:
                     print(f"uint8_t actual_digest[{out_len}];", file=of)
                     if "256" in test_group:
                         print(
-                            f"tct_shake_full({test_group}_MSG{vecno}, sizeof({test_group}_MSG{vecno}), 256, actual_digest, {out_len});",
+                            f"tct_shake_full({test_group}_MSG{vecno}, sizeof({test_group}_MSG{vecno}), TCT_SHAKE256, actual_digest, {out_len});",
                             file=of,
                         )
                     else:
                         print(
-                            f"tct_shake_full({test_group}_MSG{vecno}, sizeof({test_group}_MSG{vecno}), 128, actual_digest, {out_len});",
+                            f"tct_shake_full({test_group}_MSG{vecno}, sizeof({test_group}_MSG{vecno}), TCT_SHAKE128, actual_digest, {out_len});",
                             file=of,
                         )
                     print(
@@ -169,12 +169,12 @@ with open(sys.argv[2], "w") as of:
                 print("{", file=of)
                 if "256" in test_group:
                     print(
-                        "tct_shake_full(msg, 16, 256, digest, output_len);",
+                        "tct_shake_full(msg, 16, TCT_SHAKE256, digest, output_len);",
                         file=of,
                     )
                 else:
                     print(
-                        "tct_shake_full(msg, 16, 128, digest, output_len);",
+                        "tct_shake_full(msg, 16, TCT_SHAKE128, digest, output_len);",
                         file=of,
                     )
                 print(

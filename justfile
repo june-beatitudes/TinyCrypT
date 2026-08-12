@@ -25,9 +25,9 @@ prove-ct target="x86_64-avx2": (check-supported target)
 [working-directory('.')]
 prove-soundness:
     @echo "Running all libtinycrypt soundness proofs"
-    mkdir -p build-soundness
-    python3 proofs/cbmc/create_ninja.py $(pwd) proofs/cbmc/sha3/manifest.toml $(pwd)/build-soundness $(pwd)
-    ninja -C build-soundness
+    mkdir -p build-soundness/sha3
+    python3 proofs/cbmc/create_ninja.py $(pwd) proofs/cbmc/sha3/manifest.toml $(pwd)/build-soundness/sha3 $(pwd)
+    ninja -C build-soundness/sha3
 
 [working-directory('.')]
 check-supported target:
