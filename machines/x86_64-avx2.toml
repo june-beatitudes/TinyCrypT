@@ -1,0 +1,23 @@
+[meta]
+name = "x86_64-avx2"
+
+[compiling]
+cc = ["zig", "cc"]
+ar = ["zig", "ar"]
+cflags = ["-target x86_64-freestanding-none", "-mavx2"]
+
+[testing]
+enabled = true
+wrapper = ""
+cflags = ["-target x86_64-linux-musl", "-static"]
+
+[machine]
+endian = "little"
+has_uint128 = true
+simd_widths = [128, 256]
+mem_constrained = false
+soft_mult = false
+
+[binsec]
+enabled = false
+disabled_reason = "BINSEC/SSE does not recognize certain AVX2 instructions"

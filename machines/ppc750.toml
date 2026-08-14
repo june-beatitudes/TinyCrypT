@@ -1,0 +1,22 @@
+[meta]
+name = "ppc750"
+
+[compiling]
+cc = ["zig", "cc"]
+ar = ["zig", "ar"]
+cflags = ["-target powerpc-freestanding-none", "-mcpu=750"]
+
+[testing]
+enabled = true
+wrapper = "qemu-ppc"
+cflags = ["-target powerpc-linux-musleabihf", "-static"]
+
+[machine]
+endian = "big"
+has_uint128 = false
+simd_widths = []
+mem_constrained = true
+soft_mult = true
+
+[binsec]
+enabled = true

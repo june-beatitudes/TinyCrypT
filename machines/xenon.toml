@@ -1,0 +1,22 @@
+[meta]
+name = "xenon"
+
+[compiling]
+cc = ["zig", "cc"]
+ar = ["zig", "ar"]
+cflags = ["-target powerpc64-freestanding-none", "-mno-altivec", "-mcpu=pwr5"]
+
+[testing]
+enabled = true
+wrapper = "qemu-ppc64"
+cflags = ["-target powerpc64-linux-musl", "-static", "-mcpu=pwr5", "-mno-altivec"]
+
+[machine]
+endian = "big"
+has_uint128 = true
+simd_widths = []
+mem_constrained = false
+soft_mult = false
+
+[binsec]
+enabled = true

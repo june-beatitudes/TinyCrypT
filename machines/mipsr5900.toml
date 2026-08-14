@@ -1,0 +1,22 @@
+[meta]
+name = "mipsr5900"
+
+[compiling]
+cc = ['mipsel-linux-muslsf-gcc']
+ar = ['mipsel-linux-muslsf-gcc-ar']
+cflags = ["-march=r5900", "-mabi=32"]
+
+[testing]
+enabled = false
+disabled_reason = "QEMU does not support MIPS R5900 out of the box"
+
+[machine]
+endian = "little"
+has_uint128 = false
+simd_widths = []
+mem_constrained = true
+soft_mult = true
+
+[binsec]
+enabled = false
+disabled_reason = "BINSEC does not support MIPS"

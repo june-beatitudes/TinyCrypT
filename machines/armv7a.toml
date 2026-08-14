@@ -1,0 +1,22 @@
+[meta]
+name = "armv7a"
+
+[compiling]
+cc = ["zig", "cc"]
+ar = ["zig", "ar"]
+cflags = ["-target arm-freestanding-none", "-mcpu=cortex_a32"]
+
+[testing]
+enabled = true
+wrapper = "qemu-arm"
+cflags = ["-target arm-linux-musleabi", "-static"]
+
+[machine]
+endian = "little"
+has_uint128 = false
+simd_widths = [128]
+mem_constrained = true
+soft_mult = false
+
+[binsec]
+enabled = true

@@ -1,26 +1,60 @@
-targets := `find machines -type f | awk -F'[/.]' '{print $2}' | sed -z 's/\n/|/g'`
+targets := `find machines -type f -name *.toml | xargs -- basename -a -s .toml | sed -z "s/\n/ /g"`
+target_regex := `find machines -type f -name *.toml | xargs -- basename -a -s .toml | sed -z "s/\n/|/g"`
 bash := `which bash`
+python3 := `which python3`
 
 list-targets:
     @echo '{{ targets }}'
 
 [working-directory('.')]
-build target="x86_64-avx2": (check-supported target)
+build-all:
+    #!{{ bash }}
+    set -euo pipefail
+    read -r -a TARGET_ARR <<< "{{ targets }}"
+    for target in "${TARGET_ARR[@]}"; do
+        {{ python3 }} build.py . machines/$target.toml
+        ninja -C build/$target lib
+    done
+
+[working-directory('.')]
+test-all:
+    #!{{ bash }}
+    set -euo pipefail
+    read -r -a TARGET_ARR <<< "{{ targets }}"
+    supported=()
+    for target in "${TARGET_ARR[@]}"; do
+        if [[ ! $({{ python3 }} machines/check_props.py machines/$target.toml supports-tests) == "true" ]]; then
+            REASON="$({{ python3 }} machines/check_props.py machines/$target.toml tests-disabled-why)"
+            echo "Target $target does not support testing ($REASON)."
+        else
+            ninja -C build/$target tests
+        fi
+    done
+
+[working-directory('.')]
+make-compdb target="x86_64-avx2": (check-exists target)
+    {{ python3 }} build.py . machines/{{ target }}.toml
+    ninja -C build/{{ target }} -t compdb > compile_commands.json
+
+[working-directory('.')]
+build target="x86_64-avx2": (check-exists target)
     @echo 'Building libtinycrypt for target {{ target }}'
-    meson setup --cross-file $(pwd)/machines/{{ target }}.ini build-{{ target }}
-    ninja -C build-{{ target }} libtinycrypt.a
-    cp build-{{ target }}/compile_commands.json .
+    {{ python3 }} build.py . machines/{{ target }}.toml
+    ninja -C build/{{ target }} lib
 
 [working-directory('.')]
-test target="x86_64-avx2": (check-supported target)
+test target="x86_64-avx2": (check-tests-supported target)
     @echo 'Testing libtinycrypt for target {{ target }}'
-    cd build-{{ target }} && meson test --timeout 10
+    {{ python3 }} build.py . machines/{{ target }}.toml
+    ninja -C build/{{ target }} tests
 
 [working-directory('.')]
-prove-ct target="x86_64-avx2": (check-supported target)
+prove-ct target="x86_64-avx2": (check-binsec-supported target)
     @echo 'Running libtinycrypt constant-time proof for target {{ target }}'
-    zig cc proofs/x25519/harness.c build-{{ target }}/libtinycrypt.a -o test -I.
-    binsec -sse -checkct -sse-script proofs/x25519/binsec.cfg ./test -sse-depth 2000000
+    zig cc proofs/binsec/x25519/harness.c build-{{ target }}/libtinycrypt.a -o test -I. -static -target x86_64-linux-musl
+    binsec -sse -checkct -sse-script proofs/binsec/x25519/binsec.cfg ./test -sse-depth 2000000
+    zig cc proofs/binsec/sha2/harness.c build-{{ target }}/libtinycrypt.a -o test -I. -static -target x86_64-linux-musl
+    binsec -sse -checkct -sse-script proofs/binsec/sha2/binsec.cfg ./test -sse-depth 2000000
 
 [working-directory('.')]
 prove-soundness:
@@ -30,12 +64,34 @@ prove-soundness:
     ninja -C build-soundness/sha3
 
 [working-directory('.')]
-check-supported target:
+check-exists target:
     #!{{ bash }}
     set -euo pipefail
 
-    if [[(! "{{ target }}" =~ ^({{ targets }})$) || (-z "{{ target }}")]]; then
+    if [[(! "{{ target }}" =~ ^({{ target_regex }})$) || (-z "{{ target }}")]]; then
         echo "Target not supported. Use 'just list-targets' for a list of supported targets."
+        exit 1
+    fi
+
+[working-directory('.')]
+check-binsec-supported target: (check-exists target)
+    #!{{ bash }}
+    set -euo pipefail
+
+    if [[ ! $({{ python3 }} machines/check_props.py machines/{{ target }}.toml supports-binsec) == "true" ]]; then
+        REASON="$({{ python3 }} machines/check_props.py machines/{{ target }}.toml binsec-disabled-why)"
+        echo "Target {{ target }} does not support BINSEC analysis ($REASON)."
+        exit 1
+    fi
+
+[working-directory('.')]
+check-tests-supported target: (check-exists target)
+    #!{{ bash }}
+    set -euo pipefail
+
+    if [[ ! $({{ python3 }} machines/check_props.py machines/{{ target }}.toml supports-tests) == "true" ]]; then
+        REASON="$({{ python3 }} machines/check_props.py machines/{{ target }}.toml tests-disabled-why)"
+        echo "Target {{ target }} does not support testing ($REASON)."
         exit 1
     fi
 

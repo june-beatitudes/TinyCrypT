@@ -1,0 +1,22 @@
+[meta]
+name = "x86_64-base"
+
+[compiling]
+cc = ["zig", "cc"]
+ar = ["zig", "ar"]
+cflags = ["-target x86_64-freestanding-none", "-mno-avx2"]
+
+[testing]
+enabled = true
+wrapper = ""
+cflags = ["-target x86_64-linux-musl", "-static"]
+
+[machine]
+endian = "little"
+has_uint128 = true
+simd_widths = [128, 256]
+mem_constrained = false
+soft_mult = false
+
+[binsec]
+enabled = true

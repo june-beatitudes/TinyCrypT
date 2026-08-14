@@ -144,7 +144,41 @@
     "root": {
       "inputs": {
         "musl_cross_flake": "musl_cross_flake",
-        "nixpkgs": "nixpkgs_2"
+        "nixpkgs": "nixpkgs_2",
+        "unity": "unity",
+        "wycheproof": "wycheproof"
+      }
+    },
+    "unity": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784647580,
+        "narHash": "sha256-m1UilzXtEtnpnXYqSWIPU7KTxKYJIzXYv7uyK2fqty8=",
+        "owner": "ThrowTheSwitch",
+        "repo": "Unity",
+        "rev": "3a6eb6dfd7706b703adf60f5ce3bcad57f94de4f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ThrowTheSwitch",
+        "repo": "Unity",
+        "type": "github"
+      }
+    },
+    "wycheproof": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786463711,
+        "narHash": "sha256-vWQmvuq1zZkrZ/mCcGSdidB/1kBSWAYJuhOqSSDBTwY=",
+        "owner": "C2SP",
+        "repo": "wycheproof",
+        "rev": "5722833ca004983abd1a91bcb6c24596d50ac0f9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "C2SP",
+        "repo": "wycheproof",
+        "type": "github"
       }
     }
   },
