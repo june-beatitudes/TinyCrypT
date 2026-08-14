@@ -1,7 +1,0 @@
-option(
-  'simd',
-  type: 'combo',
-  value: 'none',
-  choices: ['none', '128-bit', '256-bit'],
-)
-option('memconstrained', type: 'boolean', value: false)
