@@ -62,6 +62,9 @@ prove-soundness:
     mkdir -p build-soundness/sha3
     python3 proofs/cbmc/create_ninja.py $(pwd) proofs/cbmc/sha3/manifest.toml $(pwd)/build-soundness/sha3 $(pwd)
     ninja -C build-soundness/sha3
+    mkdir -p build-soundness/sha2
+    python3 proofs/cbmc/create_ninja.py $(pwd) proofs/cbmc/sha2/manifest.toml $(pwd)/build-soundness/sha2 $(pwd)
+    ninja -C build-soundness/sha2
 
 [working-directory('.')]
 check-exists target:

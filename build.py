@@ -14,7 +14,7 @@ LIB_BASE_CFLAGS = [
     "-fdata-sections",
 ]
 
-TEST_BASE_CFLAGS = []
+TEST_BASE_CFLAGS = ["-Os"]
 
 TEST_BASE_LINKFLAGS = ["-Wl,--gc-sections"]
 
@@ -145,8 +145,6 @@ def main():
     OUTPUT_DIR.mkdir(exist_ok=True)
     OBJ_DIR = OUTPUT_DIR.joinpath("objs")
     OBJ_DIR.mkdir(exist_ok=True)
-    TEST_DIR = OUTPUT_DIR.joinpath("tests")
-    TEST_DIR.mkdir(exist_ok=True)
 
     sources = get_relevant_lib_sources(machine_manifest)
 
@@ -159,14 +157,19 @@ def main():
         if machine_manifest["testing"]["enabled"]:
             writer.variable("run", machine_manifest["testing"]["wrapper"])
 
+        LIB_FLAGS = " ".join(
+            set(
+                machine_manifest["compiling"]["cflags"]
+                + LIB_BASE_CFLAGS
+                + [
+                    "-D" + define
+                    for define in get_relevant_lib_defines(machine_manifest)
+                ]
+            )
+        )
         writer.rule(
             "lib_compile",
-            f"$cc \
-                $in \
-                -o $out \
-                -c \
-                -I{BASE_DIR} \
-                {' '.join(set(machine_manifest['compiling']['cflags'] + LIB_BASE_CFLAGS + ['-D' + define for define in get_relevant_lib_defines(machine_manifest)]))}",
+            f"$cc $in -o $out -c -I{BASE_DIR} {LIB_FLAGS}",
         )
         if machine_manifest["testing"]["enabled"]:
             writer.rule(
@@ -175,20 +178,11 @@ def main():
             )
             writer.rule(
                 "test_compile",
-                f"$cc \
-                    $in \
-                    -o $out \
-                    -c \
-                    -I{BASE_DIR} \
-                    -I{BASE_DIR.joinpath('tests/Unity/src')} \
-                    {' '.join(set(machine_manifest['testing']['cflags'] + TEST_BASE_CFLAGS))}",
+                f"$cc $in -o $out -c -I{BASE_DIR} -I{BASE_DIR.joinpath('tests/Unity/src')} {' '.join(set(machine_manifest['testing']['cflags'] + TEST_BASE_CFLAGS))}",
             )
             writer.rule(
                 "test_link",
-                f"$cc \
-                    $in \
-                    -o $out \
-                    {' '.join(set(machine_manifest['testing']['cflags'] + TEST_BASE_LINKFLAGS))}",
+                f"$cc $in -o $out {' '.join(set(machine_manifest['testing']['cflags'] + TEST_BASE_LINKFLAGS))}",
             )
             writer.rule("test_run", "$run $in > $out")
         writer.rule("lib_archive", "$ar rcs $out $in")

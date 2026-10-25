@@ -14,7 +14,7 @@ cflags = ["-target x86_64-linux-musl", "-static"]
 [machine]
 endian = "little"
 has_uint128 = true
-simd_widths = [128, 256]
+simd_widths = [128]
 mem_constrained = false
 soft_mult = false
 

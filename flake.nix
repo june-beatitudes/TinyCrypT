@@ -174,10 +174,15 @@
         doCheck = true;
 
         installPhase = ''
-          mkdir -p $out/x86_64-avx2
-          cp build-x86_64-avx2/libtinycrypt.a $out/x86_64-avx2
-          mkdir -p $out/x86_64-avx2/include/tinycrypt
-          cp tinycrypt/*.h $out/x86_64-avx2/include/tinycrypt
+          read -r -a TARGET_ARR <<< "$(just list-targets)"
+          mkdir -p $out
+          for target in "''${TARGET_ARR[@]}"; do
+              mkdir -p $TMPDIR/artifacts/$target
+              cp build/$target/libtinycrypt.a $TMPDIR/artifacts/$target
+              mkdir -p $TMPDIR/artifacts/$target/include/tinycrypt
+              cp tinycrypt/*.h $TMPDIR/artifacts/$target/include/tinycrypt
+              tar cjvf $out/$target.tar.xz -C $TMPDIR/artifacts/$target/ .
+          done
         '';
       };
     };

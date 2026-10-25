@@ -54,5 +54,7 @@ dkms.conf
 
 .cache/
 compile_commands.json
-build*/
+build/
 .vscode/
+result
+build-soundness/
