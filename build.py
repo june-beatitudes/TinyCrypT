@@ -1,7 +1,7 @@
 import pathlib
 import sys
-
 import tomllib
+
 from ninja import ninja_syntax
 
 LIB_BASE_CFLAGS = [
@@ -20,7 +20,11 @@ TEST_BASE_LINKFLAGS = ["-Wl,--gc-sections"]
 
 
 def get_relevant_lib_sources(machine_manifest: dict) -> list[str]:
-    sources = ["tinycrypt/portable/sha2.c", "tinycrypt/portable/sha3.c"]
+    sources = [
+        "tinycrypt/portable/sha2.c",
+        "tinycrypt/portable/sha3.c",
+        "tinycrypt/portable/memory.c",
+    ]
     if machine_manifest["machine"]["has_uint128"]:
         sources += [
             "tinycrypt/min64/chacha20_poly1305.c",

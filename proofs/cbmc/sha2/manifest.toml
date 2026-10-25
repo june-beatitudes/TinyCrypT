@@ -1,14 +1,14 @@
 [general]
-sources_under_test = ["tinycrypt/portable/sha2.c"]
+sources_under_test = ["tinycrypt/portable/sha2.c", "tinycrypt/portable/memory.c"]
 apply_loop_contracts = true
 cflags = ""
 
 [proofs.tct_sha256]
-object_bits = 8
+object_bits = 9
 enforce = ["tct_sha256"]
 replace = []
 
 [proofs.tct_sha512]
-object_bits = 8
+object_bits = 9
 enforce = ["tct_sha512"]
 replace = []

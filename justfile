@@ -43,17 +43,35 @@ build target="x86_64-avx2": (check-exists target)
     ninja -C build/{{ target }} lib
 
 [working-directory('.')]
-test target="x86_64-avx2": (check-tests-supported target)
-    @echo 'Testing libtinycrypt for target {{ target }}'
+test target="x86_64-avx2": (check-exists target)
+    #!{{ bash }}
+    set -euo pipefail
+
+    if [[ ! $({{ python3 }} machines/check_props.py machines/{{ target }}.toml supports-tests) == "true" ]]; then
+        REASON="$({{ python3 }} machines/check_props.py machines/{{ target }}.toml tests-disabled-why)"
+        echo "Target {{ target }} does not support testing ($REASON)."
+        exit 0
+    fi
+
+    echo 'Testing libtinycrypt for target {{ target }}'
     {{ python3 }} build.py . machines/{{ target }}.toml
     ninja -C build/{{ target }} tests
 
 [working-directory('.')]
-prove-ct target="x86_64-avx2": (check-binsec-supported target)
-    @echo 'Running libtinycrypt constant-time proof for target {{ target }}'
-    zig cc proofs/binsec/x25519/harness.c build-{{ target }}/libtinycrypt.a -o test -I. -static -target x86_64-linux-musl
+prove-ct target="x86_64-base": (check-exists target)
+    #!{{ bash }}
+    set -euo pipefail
+
+    if [[ ! $({{ python3 }} machines/check_props.py machines/{{ target }}.toml supports-binsec) == "true" ]]; then
+        REASON="$({{ python3 }} machines/check_props.py machines/{{ target }}.toml binsec-disabled-why)"
+        echo "Target {{ target }} does not support BINSEC analysis ($REASON)."
+        exit 0
+    fi
+
+    echo 'Running libtinycrypt constant-time proof for target {{ target }}'
+    zig cc proofs/binsec/x25519/harness.c build/{{ target }}/libtinycrypt.a -o test -I. -static -target x86_64-linux-musl -DTCT_LITTLE_ENDIAN
     binsec -sse -checkct -sse-script proofs/binsec/x25519/binsec.cfg ./test -sse-depth 2000000
-    zig cc proofs/binsec/sha2/harness.c build-{{ target }}/libtinycrypt.a -o test -I. -static -target x86_64-linux-musl
+    zig cc proofs/binsec/sha2/harness.c build/{{ target }}/libtinycrypt.a -o test -I. -static -target x86_64-linux-musl -DTCT_LITTLE_ENDIAN
     binsec -sse -checkct -sse-script proofs/binsec/sha2/binsec.cfg ./test -sse-depth 2000000
 
 [working-directory('.')]
@@ -73,28 +91,6 @@ check-exists target:
 
     if [[(! "{{ target }}" =~ ^({{ target_regex }})$) || (-z "{{ target }}")]]; then
         echo "Target not supported. Use 'just list-targets' for a list of supported targets."
-        exit 1
-    fi
-
-[working-directory('.')]
-check-binsec-supported target: (check-exists target)
-    #!{{ bash }}
-    set -euo pipefail
-
-    if [[ ! $({{ python3 }} machines/check_props.py machines/{{ target }}.toml supports-binsec) == "true" ]]; then
-        REASON="$({{ python3 }} machines/check_props.py machines/{{ target }}.toml binsec-disabled-why)"
-        echo "Target {{ target }} does not support BINSEC analysis ($REASON)."
-        exit 1
-    fi
-
-[working-directory('.')]
-check-tests-supported target: (check-exists target)
-    #!{{ bash }}
-    set -euo pipefail
-
-    if [[ ! $({{ python3 }} machines/check_props.py machines/{{ target }}.toml supports-tests) == "true" ]]; then
-        REASON="$({{ python3 }} machines/check_props.py machines/{{ target }}.toml tests-disabled-why)"
-        echo "Target {{ target }} does not support testing ($REASON)."
         exit 1
     fi
 

@@ -2,22 +2,24 @@
 #include <stdint.h>
 
 #include "tinycrypt/internal/cbmc.h"
+#include "tinycrypt/memory.h"
 #include "tinycrypt/sha2.h"
 
 static uint32_t
-rotr_32 (uint32_t x, uint8_t c) __func_contract__(requires(1 <= c < 32))
+rotr_32 (uint32_t x, uint8_t c) __func_contract__(requires(1 <= c && c < 32))
 {
   return (x >> c) | (x << (32 - c));
 }
 
 static uint64_t
-rotr_64 (uint64_t x, uint8_t c) __func_contract__(requires(1 <= c < 64))
+rotr_64 (uint64_t x, uint8_t c) __func_contract__(requires(1 <= c && c < 64))
 {
   return (x >> c) | (x << (64 - c));
 }
 
 static uint32_t
-from_be32 (const uint8_t *x) __func_contract__(requires(is_fresh(x, 4)))
+from_be32 (const volatile uint8_t *x)
+    __func_contract__(requires(is_readable(x, 4)))
 {
   uint32_t u = 0;
   for (unsigned int i = 0; i < 4; ++i)
@@ -34,7 +36,8 @@ from_be32 (const uint8_t *x) __func_contract__(requires(is_fresh(x, 4)))
 }
 
 static void
-to_be32 (uint32_t u, uint8_t *x) __func_contract__(requires(is_fresh(x, 4)))
+to_be32 (uint32_t u, volatile uint8_t *x)
+    __func_contract__(requires(is_writable(x, 4)))
 {
   for (unsigned int i = 0; i < 4; ++i)
     __loop_contract__(
@@ -49,7 +52,8 @@ to_be32 (uint32_t u, uint8_t *x) __func_contract__(requires(is_fresh(x, 4)))
 }
 
 static uint64_t
-from_be64 (const uint8_t *x) __func_contract__(requires(is_fresh(x, 8)))
+from_be64 (const volatile uint8_t *x)
+    __func_contract__(requires(is_readable(x, 8)))
 {
   uint64_t u = 0;
   for (unsigned int i = 0; i < 8; ++i)
@@ -66,7 +70,8 @@ from_be64 (const uint8_t *x) __func_contract__(requires(is_fresh(x, 8)))
 }
 
 static void
-to_be64 (uint64_t u, uint8_t *x) __func_contract__(requires(is_fresh(x, 8)))
+to_be64 (uint64_t u, volatile uint8_t *x)
+    __func_contract__(requires(is_writable(x, 8)))
 {
   for (unsigned int i = 0; i < 8; ++i)
     __loop_contract__(
@@ -96,19 +101,15 @@ static const uint32_t K256[64] = {
 
 void
 tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
-    __func_contract__(
-      requires(is_fresh(data, data_len))
-      requires(is_fresh(hash_out, TCT_SHA256_DIGEST_LEN))
-      requires(data_len < 0xffffffffffffffff - 73)
-      assigns(memory_slice(hash_out, TCT_SHA256_DIGEST_LEN))
-    )
 {
-  uint8_t chunk[64];
-  uint32_t w[64];
-  uint32_t hash_internal[8] = {
+  volatile uint8_t chunk[64];
+  volatile uint32_t w[64];
+  volatile uint32_t hash_internal[8] = {
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
   };
+  uint32_t a, b, c, d, e, f, g, k;
+  uint32_t S1, ch, temp1, S0, maj, temp2;
   for (uint64_t i = 0; i < data_len + 9; i += 64)
     __loop_contract__(
       assigns(i; entire_object(chunk); entire_object(w); entire_object(hash_internal))
@@ -170,11 +171,14 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
                         ^ (w[j - 2] >> 10);
           w[j] = w[j - 16] + s0 + w[j - 7] + s1;
         }
-      uint32_t a = hash_internal[0], b = hash_internal[1],
-               c = hash_internal[2], d = hash_internal[3],
-               e = hash_internal[4], f = hash_internal[5],
-               g = hash_internal[6], k = hash_internal[7];
-      uint32_t S1, ch, temp1, S0, maj, temp2;
+      a = hash_internal[0];
+      b = hash_internal[1];
+      c = hash_internal[2];
+      d = hash_internal[3];
+      e = hash_internal[4];
+      f = hash_internal[5];
+      g = hash_internal[6];
+      k = hash_internal[7];
 #define LOOP_BODY(j)                                                          \
   {                                                                           \
     S1 = rotr_32 (e, 6) ^ rotr_32 (e, 11) ^ rotr_32 (e, 25);                  \
@@ -223,6 +227,25 @@ tct_sha256 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
     {
       to_be32 (hash_internal[i], hash_out + i * 4);
     }
+
+  // Erase all secrets
+  tct_wipe (chunk, sizeof (chunk));
+  tct_wipe ((uint8_t *)w, sizeof (w));
+  tct_wipe ((uint8_t *)hash_internal, sizeof (hash_internal));
+  tct_wipe ((uint8_t *)&a, sizeof (a));
+  tct_wipe ((uint8_t *)&b, sizeof (b));
+  tct_wipe ((uint8_t *)&c, sizeof (c));
+  tct_wipe ((uint8_t *)&d, sizeof (d));
+  tct_wipe ((uint8_t *)&e, sizeof (e));
+  tct_wipe ((uint8_t *)&f, sizeof (f));
+  tct_wipe ((uint8_t *)&g, sizeof (g));
+  tct_wipe ((uint8_t *)&k, sizeof (k));
+  tct_wipe ((uint8_t *)&S1, sizeof (S1));
+  tct_wipe ((uint8_t *)&ch, sizeof (ch));
+  tct_wipe ((uint8_t *)&temp1, sizeof (temp1));
+  tct_wipe ((uint8_t *)&S0, sizeof (S0));
+  tct_wipe ((uint8_t *)&maj, sizeof (maj));
+  tct_wipe ((uint8_t *)&temp2, sizeof (temp2));
 }
 
 static const uint64_t K512[80] = {
@@ -257,20 +280,16 @@ static const uint64_t K512[80] = {
 
 void
 tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
-    __func_contract__(
-      requires(data_len < 0xffffffffffffffff - 146)
-      requires(is_fresh(data, data_len))
-      requires(is_fresh(hash_out, TCT_SHA512_DIGEST_LEN))
-      assigns(memory_slice(hash_out, TCT_SHA512_DIGEST_LEN))
-    )
 {
-  uint8_t chunk[128];
-  uint64_t w[80];
-  uint64_t hash_internal[8] = {
+  volatile uint8_t chunk[128];
+  volatile uint64_t w[80];
+  volatile uint64_t hash_internal[8] = {
     0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b,
     0xa54ff53a5f1d36f1, 0x510e527fade682d1, 0x9b05688c2b3e6c1f,
     0x1f83d9abfb41bd6b, 0x5be0cd19137e2179,
   };
+  uint64_t a, b, c, d, e, f, g, k;
+  uint64_t S1, ch, temp1, S0, maj, temp2;
   for (uint64_t i = 0; i < data_len + 17; i += 128)
     __loop_contract__(
       assigns(i; entire_object(chunk); entire_object(w); entire_object(hash_internal))
@@ -308,7 +327,8 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
         }
       if (data_len + 17 - i <= 128)
         {
-          to_be64 (data_len * 8, chunk + 120);
+          to_be64 ((uint64_t)(data_len >> 61), chunk + 112);
+          to_be64 ((uint64_t)(data_len << 3), chunk + 120);
         }
       for (unsigned int j = 0; j < 16; ++j)
         __loop_contract__(
@@ -332,11 +352,14 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
                         ^ (w[j - 2] >> 6);
           w[j] = w[j - 16] + s0 + w[j - 7] + s1;
         }
-      uint64_t a = hash_internal[0], b = hash_internal[1],
-               c = hash_internal[2], d = hash_internal[3],
-               e = hash_internal[4], f = hash_internal[5],
-               g = hash_internal[6], k = hash_internal[7];
-      uint64_t S1, ch, temp1, S0, maj, temp2;
+      a = hash_internal[0];
+      b = hash_internal[1];
+      c = hash_internal[2];
+      d = hash_internal[3];
+      e = hash_internal[4];
+      f = hash_internal[5];
+      g = hash_internal[6];
+      k = hash_internal[7];
 #define LOOP_BODY(j)                                                          \
   {                                                                           \
     S1 = rotr_64 (e, 14) ^ rotr_64 (e, 18) ^ rotr_64 (e, 41);                 \
@@ -385,4 +408,23 @@ tct_sha512 (const uint8_t *data, uint64_t data_len, uint8_t *hash_out)
     {
       to_be64 (hash_internal[i], hash_out + i * 8);
     }
+
+  // Erase all secrets
+  tct_wipe (chunk, sizeof (chunk));
+  tct_wipe ((uint8_t *)w, sizeof (w));
+  tct_wipe ((uint8_t *)hash_internal, sizeof (hash_internal));
+  tct_wipe ((uint8_t *)&a, sizeof (a));
+  tct_wipe ((uint8_t *)&b, sizeof (b));
+  tct_wipe ((uint8_t *)&c, sizeof (c));
+  tct_wipe ((uint8_t *)&d, sizeof (d));
+  tct_wipe ((uint8_t *)&e, sizeof (e));
+  tct_wipe ((uint8_t *)&f, sizeof (f));
+  tct_wipe ((uint8_t *)&g, sizeof (g));
+  tct_wipe ((uint8_t *)&k, sizeof (k));
+  tct_wipe ((uint8_t *)&S1, sizeof (S1));
+  tct_wipe ((uint8_t *)&ch, sizeof (ch));
+  tct_wipe ((uint8_t *)&temp1, sizeof (temp1));
+  tct_wipe ((uint8_t *)&S0, sizeof (S0));
+  tct_wipe ((uint8_t *)&maj, sizeof (maj));
+  tct_wipe ((uint8_t *)&temp2, sizeof (temp2));
 }

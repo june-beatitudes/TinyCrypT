@@ -26,17 +26,36 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+      # Manually fetch and derive the mula library
+      mula = pkgs.ocamlPackages.buildDunePackage rec {
+        pname = "mula";
+        version = "0.1.2";
+
+        src = pkgs.fetchurl {
+          url = "https://github.com/ifazk/mula/releases/download/${version}/mula-${version}.tbz";
+          sha256 = "1f0ee42aca73e33459796baa26063bf82d290cb6f4c723d3e7c9a0e58f1e0d72";
+        };
+
+        # OCaml native dependencies for building/testing
+        nativeBuildInputs = [ pkgs.ocamlPackages.ocaml pkgs.ocamlPackages.findlib ];
+        buildInputs = [ pkgs.ocamlPackages.dune_3 ];
+
+        meta = {
+          description = "ML's Universal Levenshtein Automata library";
+          homepage = "https://github.com/ifazk/mula";
+        };
+      };
       binsec = pkgs.ocamlPackages.buildDunePackage {
         pname = "binsec";
-        version = "0.11.2";
+        version = "0.11.3";
         duneVersion = "3";
         src = pkgs.fetchFromGitHub {
           owner = "binsec";
           repo = "binsec";
-          tag = "0.11.2";
-          hash = "sha256-72uAKYb+RWjN2eVhXv5cZkBLiRVOgQD0i5mwabnW0HQ=";
+          tag = "0.11.3";
+          hash = "sha256-+A4wFTCORupYuDnS405CO67s05jCqWLM79GM1XGfTVQ=";
         };
-        propagatedBuildInputs = with pkgs.ocamlPackages; [
+        propagatedBuildInputs = (with pkgs.ocamlPackages; [
           menhir
           ocamlgraph
           zarith
@@ -50,8 +69,8 @@
           ocamlformat
           odoc
           unisim_archisec
-        ];
-        nativeBuildInputs = with pkgs.ocamlPackages; [
+        ]) ++ [mula];
+        nativeBuildInputs = (with pkgs.ocamlPackages; [
           menhir
           ocamlgraph
           zarith
@@ -64,7 +83,7 @@
           unionFind
           ocamlformat
           odoc
-        ];
+        ]) ++ [mula];
         strictDeps = true;
       };
       aphrodite_shl = pkgs.mkShell {
@@ -180,7 +199,9 @@
               mkdir -p $TMPDIR/artifacts/$target
               cp build/$target/libtinycrypt.a $TMPDIR/artifacts/$target
               mkdir -p $TMPDIR/artifacts/$target/include/tinycrypt
+              mkdir -p $TMPDIR/artifacts/$target/include/tinycrypt/internal
               cp tinycrypt/*.h $TMPDIR/artifacts/$target/include/tinycrypt
+              cp tinycrypt/internal/*.h $TMPDIR/artifacts/$target/include/tinycrypt/internal
               tar cjvf $out/$target.tar.xz -C $TMPDIR/artifacts/$target/ .
           done
         '';

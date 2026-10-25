@@ -46,6 +46,8 @@ with (
             --bounds-check \
             --conversion-check \
             --pointer-overflow-check \
+            --pointer-primitive-check \
+            --undefined-shift-check \
             --stop-on-fail > $out",
     )
 
